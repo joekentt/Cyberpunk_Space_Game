@@ -1,0 +1,104 @@
+{
+    "ships": [
+        {
+            "id": "starter_skiff",
+            "model_id": "starter_skiff",
+            "name": "Skiff Mk I",
+            "class": "Small",
+            "role": "Starter",
+            "tier": 1,
+            "description": "Caça civil de produção em massa. Pequena, manobrável, cockpit amplo e armamento defensivo. Não vai impressionar ninguém, mas vai te tirar de mais apuros que vai te meter.",
+            "starting_ship": true,
+            "base_price": 0,
+            "base_stats": {
+                "mass": 120,
+                "energy_capacity": 100,
+                "heat_dissipation": 8,
+                "hull_hp": 80,
+                "shields_max": 100,
+                "cargo_capacity": 10
+            },
+            "hardpoints": {
+                "weapon_small": 2,
+                "weapon_medium": 0,
+                "weapon_large": 0,
+                "utility": 1
+            }
+        },
+        {
+            "id": "wasp_combat",
+            "model_id": "wasp_combat",
+            "name": "Wasp",
+            "class": "Small",
+            "role": "Combat",
+            "tier": 1,
+            "description": "Interceptador puro-sangue. Cinco hardpoints frontais, dois motores gêmeos, blindagem mínima. Frágil — mas com as mãos certas, mortal antes do inimigo perceber.",
+            "starting_ship": false,
+            "base_price": 45000,
+            "base_stats": {
+                "mass": 100,
+                "energy_capacity": 90,
+                "heat_dissipation": 5,
+                "hull_hp": 70,
+                "shields_max": 80,
+                "cargo_capacity": 4
+            },
+            "hardpoints": {
+                "weapon_small": 4,
+                "weapon_medium": 1,
+                "weapon_large": 0,
+                "utility": 0
+            }
+        },
+        {
+            "id": "albatross_explorer",
+            "model_id": "albatross_explorer",
+            "name": "Albatross",
+            "class": "Small",
+            "role": "Explorer",
+            "tier": 1,
+            "description": "Exploradora de longo alcance. Sensores estendidos, motor de alta eficiência, asas longas para estabilidade em manobras precisas. Combate? Foge.",
+            "starting_ship": false,
+            "base_price": 62000,
+            "base_stats": {
+                "mass": 130,
+                "energy_capacity": 130,
+                "heat_dissipation": 7,
+                "hull_hp": 75,
+                "shields_max": 90,
+                "cargo_capacity": 8
+            },
+            "hardpoints": {
+                "weapon_small": 1,
+                "weapon_medium": 0,
+                "weapon_large": 0,
+                "utility": 3
+            }
+        },
+        {
+            "id": "mule_trader",
+            "model_id": "mule_trader",
+            "name": "Mule",
+            "class": "Medium",
+            "role": "Trader",
+            "tier": 1,
+            "description": "Cargueiro pequeno de primeira viagem. Compartimento de carga grande, blindagem decente, dois motores robustos. Lenta como sua tia descendo escadas, mas paga as contas.",
+            "starting_ship": false,
+            "base_price": 95000,
+            "base_stats": {
+                "mass": 350,
+                "energy_capacity": 150,
+                "heat_dissipation": 10,
+                "hull_hp": 200,
+                "shields_max": 150,
+                "cargo_capacity": 80
+            },
+            "hardpoints": {
+                "weapon_small": 1,
+                "weapon_medium": 1,
+                "weapon_large": 0,
+                "utility": 2
+            }
+        }
+    ]
+}

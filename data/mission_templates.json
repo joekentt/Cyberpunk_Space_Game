@@ -1,0 +1,38 @@
+{
+    "templates": [
+        {
+            "type": "BOUNTY",
+            "title": "Caça ao Pirata para {faction}",
+            "description": "Elimine a ameaça pirata no setor vizinho para garantir a segurança da {faction}.",
+            "base_reward": 2500,
+            "reputation_impact": {
+                "trust": 15,
+                "aggression": -5,
+                "political_alignment": 5
+            },
+            "objectives": [{"type": "KILL", "target": "pirate_scout", "count": 1}]
+        },
+        {
+            "type": "COURIER",
+            "title": "Entrega de Dados Confidenciais",
+            "description": "Leve estes dados criptografados para a estação aliada da {faction}.",
+            "base_reward": 800,
+            "reputation_impact": {
+                "trust": 10,
+                "technological_alignment": 2
+            },
+            "objectives": [{"type": "DELIVER", "target": "station_alpha", "item": "encrypted_data"}]
+        },
+        {
+            "type": "TRADE",
+            "title": "Escassez de Recursos: {faction}",
+            "description": "A {faction} precisa urgentemente de suprimentos médicos. Entregue 5 unidades.",
+            "base_reward": 1500,
+            "reputation_impact": {
+                "trust": 5,
+                "economic_value": 20
+            },
+            "objectives": [{"type": "TRADE", "item": "medical_supplies", "count": 5}]
+        }
+    ]
+}

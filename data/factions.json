@@ -1,0 +1,46 @@
+{
+    "factions": [
+        {
+            "name": "United Humans",
+            "description": "A principal coalizão humana focada em ordem e comércio.",
+            "initial_trust": 10,
+            "initial_aggression": 0,
+            "initial_economic_value": 5,
+            "initial_political_alignment": 20,
+            "initial_technological_alignment": 0,
+            "initial_diplomacy": {
+                "Pirates": "HOSTILE",
+                "Marth": "NEUTRAL",
+                "Orcs": "UNFRIENDLY"
+            }
+        },
+        {
+            "name": "Pirates",
+            "description": "Sindicatos criminosos que operam nas sombras do espaço.",
+            "initial_trust": -50,
+            "initial_aggression": 30,
+            "initial_economic_value": 0,
+            "initial_political_alignment": -50,
+            "initial_technological_alignment": 0,
+            "initial_diplomacy": {
+                "United Humans": "HOSTILE",
+                "Marth": "HOSTILE",
+                "Orcs": "NEUTRAL"
+            }
+        },
+        {
+            "name": "Marth",
+            "description": "Uma raça tecnologicamente avançada e isolacionista.",
+            "initial_trust": 0,
+            "initial_aggression": 0,
+            "initial_economic_value": 0,
+            "initial_political_alignment": 0,
+            "initial_technological_alignment": 50,
+            "initial_diplomacy": {
+                "United Humans": "NEUTRAL",
+                "Pirates": "HOSTILE",
+                "Orcs": "NEUTRAL"
+            }
+        }
+    ]
+}
