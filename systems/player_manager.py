@@ -18,8 +18,8 @@ class PlayerManager:
 
     def __init__(self, ship: Ship):
         self.ship = ship
-        self.thrust_power = 500.0       # força de aceleração (N)
-        self.rotation_speed = 180.0     # graus por segundo (a pleno motor)
+        self.thrust_power = 3000.0      # força de aceleração (N)
+        self.rotation_speed = 220.0     # graus por segundo (a pleno motor)
 
         # Distribuição W-S-E (max 6 pips, 0-4 por sistema)
         self.pips = {"weapons": 2, "shields": 2, "engines": 2}
@@ -80,7 +80,7 @@ class PlayerManager:
         self._input_state["shoot"] = 0.0
 
         # Drag (atrito espacial leve para jogabilidade — espaço real não tem)
-        drag = 0.98
+        drag = 0.997
         self.ship.velocity[0] *= drag ** (dt * 60)
         self.ship.velocity[1] *= drag ** (dt * 60)
 
