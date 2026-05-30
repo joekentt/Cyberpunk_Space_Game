@@ -7,7 +7,7 @@ Controles:
   ESPAÇO       disparar arma primária
   F            acoplar/desacoplar em estação (quando dentro do raio)
   1 / 2 / 3    realocar pip para Weapons / Shields / Engines
-  ESC          sair (ou voltar na UI da estação)
+  ESC          pausar / voltar na UI da estação
 """
 
 import os
@@ -50,8 +50,9 @@ class SpaceRPGVisual:
         self.running = True
 
         # Estado global do jogo
-        # "playing" | "docked" | "dying" (animação curta de morte)
+        # "playing" | "paused" | "docked" | "dying" (animação curta de morte)
         self.game_state = "playing"
+        self._pause_selection = 0   # 0 = Continuar, 1 = Sair do jogo
         self.death_timer = 0.0
 
         # Lógica
@@ -185,25 +186,50 @@ class SpaceRPGVisual:
                 self.running = False
                 continue
 
-            # Quando UI da estação está aberta, ela come os eventos
+            # UI da estação consome eventos quando acoplado
             if self.game_state == "docked":
                 if self.station_ui.handle_event(ev):
                     continue
-                # Se UI não tratou e foi ESC, ignora (não fecha o jogo)
+                # ESC no menu principal da estação: ignorar (nunca fecha o jogo)
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     continue
 
-            if ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_ESCAPE:
-                    self.running = False
-                elif ev.key == pygame.K_f and self.game_state == "playing":
-                    bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
-                elif ev.key == pygame.K_1:
-                    bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "weapons"})
-                elif ev.key == pygame.K_2:
-                    bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "shields"})
-                elif ev.key == pygame.K_3:
-                    bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "engines"})
+            if ev.type != pygame.KEYDOWN:
+                continue
+
+            # ESC nunca fecha o jogo diretamente — abre/fecha menu de pausa
+            if ev.key == pygame.K_ESCAPE:
+                if self.game_state == "playing":
+                    self.game_state = "paused"
+                    self._pause_selection = 0
+                elif self.game_state == "paused":
+                    self.game_state = "playing"
+                continue
+
+            # Navegação do menu de pausa
+            if self.game_state == "paused":
+                if ev.key == pygame.K_UP:
+                    self._pause_selection = (self._pause_selection - 1) % 2
+                elif ev.key == pygame.K_DOWN:
+                    self._pause_selection = (self._pause_selection + 1) % 2
+                elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    if self._pause_selection == 1:
+                        self.running = False
+                    else:
+                        self.game_state = "playing"
+                continue
+
+            if self.game_state != "playing":
+                continue
+
+            if ev.key == pygame.K_f:
+                bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
+            elif ev.key == pygame.K_1:
+                bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "weapons"})
+            elif ev.key == pygame.K_2:
+                bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "shields"})
+            elif ev.key == pygame.K_3:
+                bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "engines"})
 
         # Inputs contínuos só durante "playing"
         if self.game_state != "playing":
@@ -382,11 +408,14 @@ class SpaceRPGVisual:
 
         player = self.universe.entities.get(self.player_id)
 
-        # HUD durante gameplay
-        if self.game_state == "playing" and player:
+        # HUD durante gameplay (mostra também em pausa para o fundo ficar visível)
+        if self.game_state in ("playing", "paused") and player:
             self.hud.draw(self.screen, player)
             self._draw_combat_hud(player)
             self._draw_docking_prompt()
+
+        if self.game_state == "paused":
+            self._draw_pause_menu()
         elif self.game_state == "docked":
             self.station_ui.draw(self.screen)
         elif self.game_state == "dying":
@@ -520,14 +549,35 @@ class SpaceRPGVisual:
         )
         self.screen.blit(loss, loss.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 42)))
 
+    def _draw_pause_menu(self):
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (0, 0))
+
+        title = self.big_font.render("PAUSADO", True, (0, 220, 255))
+        self.screen.blit(title, title.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60)))
+
+        options = ["CONTINUAR", "SAIR DO JOGO"]
+        for i, label in enumerate(options):
+            color = (255, 220, 120) if i == self._pause_selection else (180, 200, 220)
+            prefix = "▸ " if i == self._pause_selection else "  "
+            text = self.info_font.render(prefix + label, True, color)
+            self.screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + i * 36)))
+
+        hint = self.label_font.render(
+            "ESC = continuar   ↑↓ = navegar   ENTER = confirmar",
+            True, (120, 140, 160),
+        )
+        self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 96)))
+
     def _draw_controls(self):
-        if self.game_state == "docked":
-            return  # UI da estação cuida do seu próprio help
+        if self.game_state in ("docked", "paused"):
+            return  # UI da estação / pausa cuida do próprio help
         lines = [
             "W = thrust   A/D = rotate",
             "ESPAÇO = disparar    F = acoplar",
             "1/2/3 = realocar PIP",
-            "ESC = sair",
+            "ESC = pausar",
         ]
         y = HEIGHT - 80
         for line in lines:
