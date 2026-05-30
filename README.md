@@ -48,12 +48,18 @@ SDL_VIDEODRIVER=dummy python main_pygame.py
 
 | Tecla | Ação |
 |-------|------|
-| W | Acelerar |
-| A / D | Rotacionar esquerda / direita |
+| W | Acelerar / aumentar throttle (motor principal, para frente) |
+| S | Frear e engatar ré (diminuir throttle; ponto morto no centro) |
+| A / D | Girar o bico esquerda / direita |
+| Q / E | Strafe lateral esquerda / direita (thrusters RCS, sem girar o bico) |
 | ESPAÇO | Disparar arma primária |
 | **F** | **Acoplar em estação (dentro do raio) / Desacoplar** |
 | 1 / 2 / 3 | Realocar 1 pip para Weapons / Shields / Engines |
-| ESC | Sair |
+| ESC | Pausar (menu de pausa) |
+
+> **Empuxo:** o motor principal (frente) é o mais forte; a ré é mais fraca
+> (~55%) e o strafe lateral é o mais fraco (~45%) — são thrusters de manobra.
+> Toda a potência de empuxo escala com os pips de **Engines**.
 
 ### Controles dentro de uma estação
 

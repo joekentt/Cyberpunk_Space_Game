@@ -2,8 +2,10 @@
 Entry point visual do Cyberpunk Space RPG.
 
 Controles:
-  W            acelerar
-  A / D        rotacionar esquerda / direita
+  W            acelerar (aumentar throttle / frente)
+  S            frear e engatar ré (diminuir throttle)
+  A / D        girar o bico esquerda / direita
+  Q / E        strafe lateral esquerda / direita (thrusters RCS)
   ESPAÇO       disparar arma primária
   F            acoplar/desacoplar em estação (quando dentro do raio)
   1 / 2 / 3    realocar pip para Weapons / Shields / Engines
@@ -244,10 +246,17 @@ class SpaceRPGVisual:
                 self.vfx.create_engine_trail(
                     tuple(player.position), player.rotation, palette["accent"][:3]
                 )
+        if keys[pygame.K_s]:
+            # Throttle negativo: freia e, no ponto morto, engata ré
+            bus.emit("PLAYER_INPUT", {"action": "thrust", "value": -1.0})
         if keys[pygame.K_a]:
             bus.emit("PLAYER_INPUT", {"action": "rotate", "value": -1.0})
         if keys[pygame.K_d]:
             bus.emit("PLAYER_INPUT", {"action": "rotate", "value": 1.0})
+        if keys[pygame.K_q]:
+            bus.emit("PLAYER_INPUT", {"action": "strafe", "value": -1.0})
+        if keys[pygame.K_e]:
+            bus.emit("PLAYER_INPUT", {"action": "strafe", "value": 1.0})
         if keys[pygame.K_SPACE]:
             bus.emit("PLAYER_INPUT", {"action": "shoot", "value": 1.0})
 
@@ -574,7 +583,8 @@ class SpaceRPGVisual:
         if self.game_state in ("docked", "paused"):
             return  # UI da estação / pausa cuida do próprio help
         lines = [
-            "W = thrust   A/D = rotate",
+            "W/S = throttle (frente/ré)",
+            "A/D = girar    Q/E = strafe",
             "ESPAÇO = disparar    F = acoplar",
             "1/2/3 = realocar PIP",
             "ESC = pausar",
