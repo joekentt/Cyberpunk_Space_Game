@@ -42,239 +42,324 @@ SHIP_PROFILES: Dict[str, Dict] = {
     # ----- Modelos específicos (use model_id para selecionar) -----
 
     "starter_skiff": {
-        # Skiff Mk I — nave inicial padrão de todo jogador.
-        # Forma de "gota" achatada: módulo central compacto sem nada
-        # aerodinâmico. As "saliências" laterais são pequenos RADIADORES
-        # de dissipação de calor + acoplagens de hardpoints (não asas).
-        # Cockpit amplo na frente, motor único discreto na traseira.
-        # Vibe: civil, confiável, produção em massa para uso espacial.
+        # Terran Skiff Mk II — escolta civil de médio alcance, upgrade do Mk I.
+        # Corpo central elongado e magro com DOIS PODS DE MOTOR nas traseiras
+        # que se projetam para fora do corpo principal (nacelles angulares).
+        # Nariz fino pontudo, cockpit embutido, linhas limpas de escolta.
+        # Vibe: civil de alta qualidade, confiável, produção em série para comboios.
         "hull": [
-            (0.78, 0.00),     # nariz arredondado
-            (0.68, 0.18),
-            (0.52, 0.34),
-            (0.30, 0.42),
-            (0.10, 0.46),     # cintura - largura máxima
-            (-0.05, 0.50),    # pequena projeção do radiador (curta, modular)
-            (-0.15, 0.50),
-            (-0.22, 0.46),
-            (-0.45, 0.40),
-            (-0.62, 0.28),
-            (-0.78, 0.18),    # cone traseiro
-            (-0.85, 0.10),
-            (-0.85, 0.00),
+            (0.88, 0.00),     # nariz fino pontudo — Mk II mais afilado que Mk I
+            (0.76, 0.08),     # pescoço estreito
+            (0.62, 0.16),
+            (0.44, 0.24),     # corpo se abre para a largura máxima
+            (0.20, 0.28),
+            (-0.02, 0.28),    # cintura quase plana (corpo central retangular)
+            (-0.16, 0.30),    # leve alargamento antes do pod
+            (-0.28, 0.40),    # ombro do pod — sobe rápido para o nacelle
+            (-0.40, 0.50),    # canto frontal externo do pod
+            (-0.55, 0.52),    # topo do pod (quase horizontal, plano)
+            (-0.66, 0.50),    # canto traseiro do pod
+            (-0.74, 0.38),    # pod afila na traseira
+            (-0.82, 0.20),
+            (-0.88, 0.08),    # popa
+            (-0.88, 0.00),
         ],
-        "canvas_size": 64,
-        "fill_ratio": 0.92,
-        "cockpit": [
-            (0.40, 0.0, 0.14, 0.10),       # cockpit AMPLO um pouco recuado
+        "canvas_size": 72,
+        "fill_ratio": 0.90,
+        "cockpit": [(0.52, 0.0, 0.10, 0.08)],
+        "engines": [
+            (-0.70, 0.44, 0.08),   # motor do pod nacelle superior
+            (-0.70, -0.44, 0.08),  # motor do pod nacelle inferior
+            (-0.88, 0.00, 0.04),   # motor central auxiliar
         ],
-        "engines": [(-0.85, 0.0, 0.08)],   # motor único pequeno (discreto)
-        "hardpoints": [(0.15, 0.42), (-0.10, 0.48)],
+        "hardpoints": [(0.18, 0.26), (-0.20, 0.44)],
         "panel_lines": [
-            ((0.62, 0.0), (-0.72, 0.0)),     # quilha central
-            ((0.45, 0.20), (-0.30, 0.40)),
-            ((0.05, 0.46), (0.05, -0.46)),   # mamparo frontal
-            ((-0.35, 0.40), (-0.35, -0.40)), # mamparo traseiro
-            # Detalhes do "radiador" curto
-            ((-0.05, 0.50), (-0.15, 0.50)),
-            ((-0.05, -0.50), (-0.15, -0.50)),
+            ((0.75, 0.00), (-0.78, 0.00)),       # quilha central
+            ((0.55, 0.14), (-0.10, 0.26)),       # linha superior do corpo
+            ((0.02, 0.28), (0.02, -0.28)),       # mamparo frontal
+            ((-0.28, 0.40), (-0.28, -0.40)),     # parede frontal do pod
+            ((-0.40, 0.50), (-0.66, 0.50)),      # face superior do pod (horizontal)
         ],
         "nav_lights": [
-            (0.70, 0.07, "warm"),     # baliza de proa
-            (0.12, 0.43, "accent"),   # luz de cintura (boreste)
-            (-0.10, 0.47, "warm"),    # ponta do radiador
-            (-0.74, 0.11, "accent"),  # luz traseira
+            (0.80, 0.04, "warm"),     # proa
+            (0.16, 0.26, "accent"),   # cintura
+            (-0.52, 0.50, "warm"),    # centro do pod nacelle
+            (-0.80, 0.18, "accent"),  # popa
         ],
         "accent_stripe": [
-            [(0.55, 0.20), (0.10, 0.40), (-0.20, 0.42), (-0.55, 0.30)],
+            [(0.58, 0.14), (0.08, 0.24), (-0.22, 0.28), (-0.60, 0.44)],
         ],
     },
 
     "wasp_combat": {
-        # Wasp — interceptador espacial. Construção MODULAR ANGULAR:
-        # corpo central retangular + spinal mount frontal (canhão fino
-        # com base alargada) + dois pods de hardpoint laterais (cubos
-        # retangulares, não asas curvas) + bateria de motores traseira.
-        # Tudo com cantos vivos e linhas retas. Estética The Expanse.
-        # Vibe: plataforma de armas modular soldada em estaleiro orbital.
+        # Swarm Wasp Mk III — interceptador de próxima geração.
+        # DELTA alargado: nariz de arma fino que explode em leque para uma
+        # bateria de quatro motores traseira. Sem pods separados —
+        # o corpo É a asa. Visual de máquina de guerra pura.
+        # Vibe: interceptador sem misericórdia, sem carga, tudo em arma e motor.
         "hull": [
-            # Spinal mount (canhão fino projetado pra frente)
-            (1.00, 0.04),    # ponta
-            (0.95, 0.04),
-            (0.92, 0.10),    # base do canhão alarga em cantos vivos
-            (0.55, 0.10),    # encontro com o corpo central
-
-            # Corpo central retangular (linhas retas)
-            (0.55, 0.22),    # canto frontal superior do corpo
-            (0.40, 0.22),    # entalhe pro pod lateral
-            (0.40, 0.45),    # pod lateral frontal: canto externo inferior
-            (0.20, 0.50),    # pod: borda superior plana
-            (0.00, 0.50),
-            (-0.05, 0.45),   # canto interno do pod
-            (-0.05, 0.22),   # de volta ao corpo central
-
-            (-0.30, 0.22),   # corpo continua reto
-
-            # Pod lateral traseiro (igual angular)
-            (-0.30, 0.45),   # canto frontal do pod traseiro
-            (-0.40, 0.52),   # canto externo
-            (-0.55, 0.52),
-            (-0.62, 0.45),   # canto interno traseiro
-            (-0.62, 0.22),   # de volta ao corpo
-
-            # Bateria de motores em "degraus" angulares
-            (-0.70, 0.22),
-            (-0.78, 0.20),
-            (-0.85, 0.15),   # canto da bateria
-            (-0.88, 0.06),
+            (0.98, 0.04),    # ponta do canhão spinal (ultra-fino)
+            (0.90, 0.04),
+            (0.82, 0.14),    # base do canhão alarga em degrau vivo
+            (0.58, 0.16),    # corpo frontal (retangular, modular)
+            (0.45, 0.28),    # delta começa a abrir agressivamente
+            (0.22, 0.52),    # asa em delta — inclinação acentuada
+            (-0.02, 0.62),   # pico da asa (extensão máxima)
+            (-0.28, 0.62),   # asa traseira — larga e plana
+            (-0.48, 0.52),   # curvatura interna da asa traseira
+            (-0.62, 0.36),   # contrai em direção à bateria de motores
+            (-0.76, 0.22),   # bateria de 4 escapes
+            (-0.84, 0.12),
+            (-0.88, 0.04),
             (-0.88, 0.00),
         ],
-        "canvas_size": 80,
-        "fill_ratio": 0.92,
-        "cockpit": [(0.30, 0.0, 0.07, 0.05)],   # cockpit pequeno no corpo central
+        "canvas_size": 88,
+        "fill_ratio": 0.88,
+        "cockpit": [(0.36, 0.0, 0.06, 0.04)],
         "engines": [
-            # Bateria de motores (vários menores em vez de 2 grandes)
-            (-0.88, 0.12, 0.05),
-            (-0.88, 0.0, 0.06),
-            (-0.88, -0.12, 0.05),
+            (-0.82, 0.22, 0.07),   # motor externo superior
+            (-0.86, 0.08, 0.09),   # motor interno superior
+            (-0.86, -0.08, 0.09),  # motor interno inferior
+            (-0.82, -0.22, 0.07),  # motor externo inferior
         ],
         "hardpoints": [
-            (0.97, 0.04),     # boca do canhão central
-            (0.10, 0.48),     # torre do pod frontal
-            (-0.48, 0.50),    # torre do pod traseiro
+            (0.94, 0.04),     # boca do canhão central
+            (0.08, 0.58),     # torre na asa (pico)
+            (-0.22, 0.60),    # torre na asa traseira
+            (0.34, 0.24),     # hardpoint lateral do corpo
         ],
         "panel_lines": [
-            # Detalhes técnicos retos (não curvos)
-            ((0.85, 0.04), (0.55, 0.10)),     # transição do canhão
-            ((0.55, 0.10), (0.55, -0.10)),    # parede frontal do corpo
-            ((0.40, 0.45), (0.40, -0.45)),    # parede do pod frontal
-            ((-0.30, 0.45), (-0.30, -0.45)),  # parede do pod traseiro
-            ((-0.62, 0.22), (-0.62, -0.22)),  # parede da bateria
-            ((0.0, 0.0), (-0.65, 0.0)),       # quilha central
-            # Paineis nos pods
-            ((0.40, 0.48), (0.0, 0.48)),
-            ((-0.30, 0.48), (-0.55, 0.48)),
+            ((0.82, 0.04), (0.58, 0.14)),     # transição canhão→corpo
+            ((0.58, 0.14), (0.58, -0.14)),    # parede frontal do corpo
+            ((0.45, 0.24), (-0.26, 0.60)),    # nervura delta principal
+            ((-0.46, 0.50), (-0.62, 0.34)),   # curvatura interna da asa
+            ((0.00, 0.00), (-0.78, 0.00)),    # quilha central
+            ((-0.02, 0.60), (-0.28, 0.60)),   # borda da asa traseira
         ],
         "nav_lights": [
-            (0.95, 0.07, "warm"),     # base do canhão spinal
-            (0.18, 0.47, "accent"),   # torre do pod frontal
-            (-0.46, 0.49, "accent"),  # torre do pod traseiro
-            (-0.84, 0.15, "warm"),    # baia de motores
+            (0.88, 0.07, "warm"),     # base do canhão
+            (0.04, 0.59, "accent"),   # pico da asa
+            (-0.26, 0.60, "accent"),  # asa traseira
+            (-0.82, 0.20, "warm"),    # bateria de motores
         ],
         "accent_stripe": [
-            [(0.55, 0.16), (-0.05, 0.16), (-0.30, 0.16), (-0.62, 0.16)],
+            [(0.58, 0.12), (-0.02, 0.12), (-0.58, 0.28), (-0.80, 0.16)],
         ],
     },
 
     "albatross_explorer": {
-        # Albatross — sonda exploradora espacial. Corpo central magro
-        # estruturado tipo "satélite", com PAINEIS SOLARES/RADIADORES
-        # estendidos lateralmente (forma retangular, não aerodinâmica),
-        # array de SENSORES frontais (nariz com prongs), motor único
-        # grande na traseira. Inspirado em Voyager/New Horizons/Cassini.
-        # Vibe: probe científica, instrumentos expostos, sem nada que
-        # sugira aerodinâmica.
+        # Albatross / Prospector — sonda industrial de longo alcance.
+        # BOOM frontal ultra-fino (sensor + perfurador) projetado para frente,
+        # suportado por módulo central de instrumentos. PAINÉIS DE COLETA
+        # laterais retangulares (coletores de amostra e antenas — não asas!).
+        # Motor de alta eficiência único na traseira.
+        # Vibe: robô industrial espacial — Curiosity rover mas em nave.
         "hull": [
-            (1.00, 0.0),     # ponta do array de sensores frontal
-            (0.95, 0.05),
-            (0.85, 0.06),    # base do array
-            (0.78, 0.16),
-            (0.60, 0.16),    # corpo central começa (módulo principal)
-            (0.55, 0.40),    # painel solar frontal - retangular, não asa!
-            (0.50, 0.48),    # canto externo do painel
-            (0.20, 0.50),    # painel é retangular (lado externo plano)
-            (0.15, 0.42),
-            (0.10, 0.20),    # volta ao corpo central
-            (-0.10, 0.20),
-            (-0.15, 0.42),
-            (-0.20, 0.50),   # segundo painel solar (traseiro)
-            (-0.55, 0.50),
-            (-0.60, 0.42),
-            (-0.65, 0.20),   # volta ao corpo (atrás dos painéis)
-            (-0.75, 0.18),
-            (-0.85, 0.14),   # cone do motor
-            (-0.90, 0.08),
-            (-0.90, 0.0),
+            (1.00, 0.00),    # ponta do boom frontal (sensor/drill)
+            (0.95, 0.04),    # haste ultra-fina do boom
+            (0.88, 0.05),
+            (0.80, 0.15),    # base do boom encontra o módulo central
+            (0.70, 0.16),    # módulo frontal começa (câmara de instrumentos)
+            (0.62, 0.38),    # PAINEL DE COLETA retangular lateral
+            (0.52, 0.50),    # canto externo do painel
+            (0.18, 0.52),    # borda superior plana do painel (horizontal)
+            (0.12, 0.40),    # painel volta ao corpo
+            (0.05, 0.18),    # cintura do corpo central
+            (-0.08, 0.18),   # corpo central simétrico
+            (-0.16, 0.40),   # segundo painel começa
+            (-0.24, 0.52),   # canto externo painel 2
+            (-0.58, 0.52),   # borda superior plana painel 2
+            (-0.65, 0.38),   # painel 2 volta ao corpo
+            (-0.76, 0.18),   # cone do motor (afunila para o escape)
+            (-0.86, 0.08),
+            (-0.90, 0.00),   # popa
         ],
         "canvas_size": 80,
-        "fill_ratio": 0.94,
-        "cockpit": [(0.35, 0.0, 0.08, 0.06)],
-        "engines": [(-0.90, 0.0, 0.10)],       # motor único grande
+        "fill_ratio": 0.93,
+        "cockpit": [(0.38, 0.0, 0.08, 0.06)],
+        "engines": [(-0.90, 0.00, 0.12)],   # motor único grande e eficiente
         "hardpoints": [
-            (0.95, 0.0),                          # array de sensor frontal
-            (0.35, 0.48),                         # antena no painel 1
-            (-0.40, 0.48),                        # antena no painel 2
+            (0.95, 0.00),       # ponta do boom (sensor/drill)
+            (0.35, 0.49),       # painel de coleta 1
+            (-0.40, 0.49),      # painel de coleta 2
         ],
         "panel_lines": [
-            ((0.85, 0.0), (-0.75, 0.0)),          # quilha do módulo central
-            # Linhas dos painéis solares (formam padrão de células)
-            ((0.50, 0.20), (0.50, 0.48)),         # divisória vertical painel 1
-            ((0.30, 0.20), (0.30, 0.48)),         # célula do painel 1
-            ((0.20, 0.20), (0.20, 0.48)),
-            ((-0.25, 0.20), (-0.25, 0.50)),       # painel 2
-            ((-0.40, 0.20), (-0.40, 0.50)),
-            ((-0.55, 0.20), (-0.55, 0.50)),
-            # Linha frontal do array de sensores
-            ((0.78, 0.16), (0.78, -0.16)),
+            ((0.92, 0.00), (-0.78, 0.00)),       # quilha — boom + corpo
+            ((0.62, 0.18), (0.62, 0.50)),        # divisória painel 1
+            ((0.38, 0.18), (0.38, 0.50)),        # célula painel 1
+            ((0.18, 0.18), (0.18, 0.50)),
+            ((-0.24, 0.18), (-0.24, 0.50)),      # painel 2
+            ((-0.42, 0.18), (-0.42, 0.50)),
+            ((-0.58, 0.18), (-0.58, 0.50)),
+            ((0.80, 0.15), (0.80, -0.15)),       # frame da base do boom
         ],
         "nav_lights": [
-            (0.95, 0.05, "warm"),     # ponta do array de sensores
-            (0.35, 0.46, "accent"),   # antena do painel 1
-            (-0.40, 0.46, "accent"),  # antena do painel 2
-            (-0.85, 0.10, "warm"),    # motor único
+            (0.95, 0.02, "warm"),     # ponta do boom
+            (0.35, 0.49, "accent"),   # painel de coleta 1
+            (-0.40, 0.49, "accent"),  # painel de coleta 2
+            (-0.86, 0.06, "warm"),    # motor
         ],
         "accent_stripe": [
-            [(0.78, 0.10), (0.10, 0.13), (-0.65, 0.13)],
+            [(0.80, 0.12), (0.08, 0.16), (-0.68, 0.16)],
         ],
     },
 
     "mule_trader": {
-        # Mule — cargueiro pequeno. Forma de "caixote com nariz", priorizando
-        # volume interno sobre estética. Cockpit pequeno deslocado pra frente,
-        # corpo retangular dominante, dois motores grandes atrás.
-        # Sem asas dignas de nota. Defesa boa, velocidade baixa.
-        # Vibe: van espacial, contêiner motorizado, "trabalhador".
+        # Heavy Mule Hauler — cargueiro pesado. Dois BLOCOS DE CARGA
+        # retangulares dominam o perfil (caixotes modulares empilhados),
+        # cockpit utilitário compacto à frente, par de motores industriais
+        # grandes atrás. Lento, resistente, capacidade máxima.
+        # Vibe: caminhão espacial de longa distância, paga as contas.
         "hull": [
-            (0.75, 0.00),    # nariz curto
-            (0.70, 0.18),
-            (0.62, 0.30),
-            (0.55, 0.40),    # parede do "caixote" começa
-            (0.50, 0.48),
-            (0.20, 0.50),    # topo do caixote (quase plano)
-            (-0.20, 0.50),
-            (-0.45, 0.48),
-            (-0.62, 0.42),
-            (-0.72, 0.30),   # parede traseira do caixote
-            (-0.82, 0.22),
-            (-0.88, 0.10),
-            (-0.88, 0.00),
+            (0.72, 0.00),    # nariz utilitário curto
+            (0.65, 0.16),
+            (0.56, 0.32),    # ombros do casco
+            (0.46, 0.44),    # canto frontal do BLOCO DE CARGA
+            (0.36, 0.55),    # topo do bloco 1 (alto, retangular)
+            (-0.05, 0.57),   # topo quase horizontal do bloco 1
+            (-0.15, 0.57),   # divisória entre blocos
+            (-0.25, 0.57),   # topo do bloco 2
+            (-0.42, 0.55),
+            (-0.55, 0.48),   # canto traseiro do bloco 2
+            (-0.66, 0.40),
+            (-0.76, 0.30),   # arranjo de motores
+            (-0.84, 0.18),
+            (-0.90, 0.06),
+            (-0.90, 0.00),
+        ],
+        "canvas_size": 96,
+        "fill_ratio": 0.90,
+        "cockpit": [(0.60, 0.0, 0.08, 0.06)],
+        "engines": [
+            (-0.90, 0.22, 0.12),   # motor industrial superior grande
+            (-0.90, -0.22, 0.12),  # motor industrial inferior grande
+            (-0.90, 0.00, 0.08),   # motor central auxiliar
+        ],
+        "hardpoints": [
+            (-0.10, 0.54),    # hardpoint defensivo (bloco 1)
+            (-0.40, 0.52),    # hardpoint defensivo (bloco 2)
+        ],
+        "panel_lines": [
+            ((0.65, 0.18), (-0.60, 0.42)),       # linha superior do casco
+            ((0.36, 0.55), (-0.15, 0.55)),       # topo do bloco 1
+            ((-0.15, 0.55), (-0.42, 0.55)),      # topo do bloco 2
+            ((0.36, 0.55), (0.36, -0.55)),       # mamparo frontal dos blocos
+            ((-0.15, 0.57), (-0.15, -0.57)),     # mamparo central
+            ((0.65, 0.00), (-0.76, 0.00)),       # quilha
+        ],
+        "nav_lights": [
+            (0.65, 0.10, "warm"),     # proa
+            (0.15, 0.54, "accent"),   # bloco 1
+            (-0.30, 0.54, "accent"),  # bloco 2
+            (-0.86, 0.14, "warm"),    # motores
+        ],
+        "accent_stripe": [
+            [(0.42, 0.52), (0.15, 0.54), (-0.15, 0.54), (-0.42, 0.52)],
+        ],
+    },
+
+    "stingray_raider": {
+        # Stingray Raider — caça pirata estilo arraia espacial.
+        # Corpo EXTREMAMENTE LARGO: asas espalmadas que terminam em pods
+        # de motor nas pontas. Nariz achatado mas pontudo. A silhueta de
+        # arraia garante baixo perfil de colisão frontal e manobrabilidade
+        # lateral brutal (strafe são os pods laterais).
+        # Vibe: interceptador pirata intimidante, parece um morcego vindo reto.
+        "hull": [
+            (0.65, 0.00),    # nariz achatado pontudo
+            (0.50, 0.12),    # frente alarga rápido
+            (0.28, 0.36),    # corpo explode em asa de arraia
+            (0.05, 0.58),    # pico frontal da asa (muito largo)
+            (-0.18, 0.66),   # extensão máxima da asa
+            (-0.38, 0.64),   # asa começa a fechar em direção ao pod
+            (-0.52, 0.52),   # curvatura para o pod de motor
+            (-0.62, 0.34),   # pod de motor lateral
+            (-0.66, 0.16),   # popa lateral
+            (-0.68, 0.00),   # popa central
+        ],
+        "canvas_size": 88,
+        "fill_ratio": 0.88,
+        "cockpit": [(0.28, 0.0, 0.08, 0.06)],
+        "engines": [
+            (-0.60, 0.28, 0.09),   # motor no pod de asa superior
+            (-0.60, -0.28, 0.09),  # motor no pod de asa inferior
+            (-0.68, 0.00, 0.07),   # motor central
+        ],
+        "hardpoints": [
+            (0.60, 0.00),     # canhão frontal
+            (0.04, 0.54),     # asa (pico)
+            (-0.22, 0.62),    # extremidade da asa
+        ],
+        "panel_lines": [
+            ((0.50, 0.00), (-0.60, 0.00)),     # quilha central
+            ((0.40, 0.10), (0.04, 0.52)),      # nervura da asa frontal
+            ((-0.18, 0.62), (-0.48, 0.50)),    # borda traseira da asa
+            ((0.20, 0.26), (-0.10, 0.48)),     # nervura intermediária
+            ((-0.38, 0.60), (-0.55, 0.38)),    # curvatura para o pod
+        ],
+        "nav_lights": [
+            (0.58, 0.04, "warm"),     # proa
+            (0.04, 0.55, "accent"),   # pico frontal da asa
+            (-0.20, 0.63, "warm"),    # ponta da asa (extensão máxima)
+            (-0.58, 0.30, "accent"),  # pod de motor
+        ],
+        "accent_stripe": [
+            [(0.42, 0.08), (0.04, 0.50), (-0.20, 0.60), (-0.46, 0.50)],
+        ],
+    },
+
+    "terraformador_ligeiro": {
+        # Terraformador Ligeiro — utilitário de serviço da Coalizão Humana.
+        # Corpo em duas seções: módulo de controle frontal estreito +
+        # módulo de equipamento traseiro mais largo (plataforma de trabalho).
+        # Saliências laterais são braços de trabalho / antenas de terraformação,
+        # não asas. Dois motores robustos na traseira.
+        # Vibe: nave de serviço pesado, funcional, sem compromisso com estética.
+        "hull": [
+            (0.75, 0.00),    # nariz utilitário
+            (0.68, 0.14),    # cabine de controle (estreita)
+            (0.60, 0.22),
+            (0.50, 0.28),    # transição para módulo de equipamento
+            (0.38, 0.36),    # módulo começa a alargar
+            (0.20, 0.44),    # braço lateral de trabalho
+            (0.05, 0.50),    # lateral do módulo
+            (-0.15, 0.52),   # plataforma de trabalho (máximo lateral)
+            (-0.30, 0.52),
+            (-0.40, 0.48),
+            (-0.52, 0.42),   # traseira do módulo
+            (-0.62, 0.32),
+            (-0.72, 0.22),
+            (-0.80, 0.12),
+            (-0.85, 0.04),
+            (-0.85, 0.00),
         ],
         "canvas_size": 80,
         "fill_ratio": 0.92,
-        "cockpit": [(0.60, 0.0, 0.08, 0.06)],
+        "cockpit": [(0.58, 0.0, 0.09, 0.07)],
         "engines": [
-            (-0.88, 0.15, 0.10),
-            (-0.88, -0.15, 0.10),
+            (-0.85, 0.14, 0.09),   # motor superior
+            (-0.85, -0.14, 0.09),  # motor inferior
         ],
         "hardpoints": [
-            (-0.15, 0.48),    # hardpoint defensivo dorsal
-            (-0.50, 0.45),    # hardpoint defensivo traseiro
+            (0.14, 0.48),     # braço de trabalho lateral
+            (-0.28, 0.50),    # plataforma posterior
+            (-0.52, 0.40),    # montagem traseira
         ],
         "panel_lines": [
-            ((0.70, 0.20), (-0.65, 0.40)),       # linha superior do caixote
-            ((0.55, 0.45), (-0.55, 0.45)),       # topo do contêiner
-            ((0.20, 0.50), (0.20, -0.50)),       # divisão do contêiner
-            ((-0.20, 0.50), (-0.20, -0.50)),
-            ((0.65, 0.0), (-0.75, 0.0)),         # quilha
+            ((0.65, 0.00), (-0.74, 0.00)),       # quilha
+            ((0.52, 0.24), (-0.44, 0.40)),       # linha superior do casco
+            ((0.38, 0.34), (0.38, -0.34)),       # mamparo frontal do módulo
+            ((-0.15, 0.50), (-0.15, -0.50)),     # mamparo central
+            ((0.05, 0.50), (-0.40, 0.50)),       # topo da plataforma lateral
         ],
         "nav_lights": [
-            (0.70, 0.10, "warm"),     # proa
-            (0.20, 0.47, "accent"),   # topo do contêiner (frente)
-            (-0.20, 0.47, "accent"),  # topo do contêiner (traseira)
-            (-0.80, 0.13, "warm"),    # baia de motores
+            (0.70, 0.08, "warm"),     # proa
+            (0.10, 0.48, "accent"),   # braço lateral
+            (-0.22, 0.50, "accent"),  # plataforma
+            (-0.80, 0.10, "warm"),    # popa
         ],
         "accent_stripe": [
-            [(0.50, 0.45), (0.20, 0.47), (-0.20, 0.47), (-0.55, 0.43)],
+            [(0.50, 0.24), (0.04, 0.44), (-0.28, 0.50), (-0.54, 0.38)],
         ],
     },
 

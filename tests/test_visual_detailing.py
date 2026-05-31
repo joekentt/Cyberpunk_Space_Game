@@ -18,13 +18,15 @@ from visual_engine.sprite_generator import SpriteGenerator
 from visual_engine.palette_manager import PaletteManager
 
 BEFORE_DIR = "/tmp/space_rpg_sprites/before"
-OUT = "/tmp/space_rpg_sprites/_detailing_before_after.png"
+OUT = "/tmp/space_rpg_sprites/_gemini_ships_preview.png"
 
 SHIPS = [
-    ("starter_skiff", "Small",  "United Humans", "Skiff Mk I"),
-    ("wasp_combat",   "Small",  "Pirates",       "Wasp"),
-    ("albatross_explorer", "Small", "Independent", "Albatross"),
-    ("mule_trader",   "Medium", "Independent",   "Mule"),
+    ("starter_skiff",        "Small",  "United Humans", "Terran Skiff Mk II"),
+    ("wasp_combat",          "Small",  "Pirates",       "Swarm Wasp Mk III"),
+    ("albatross_explorer",   "Small",  "Independent",   "Prospector / Albatross"),
+    ("mule_trader",          "Medium", "Independent",   "Heavy Mule Hauler"),
+    ("stingray_raider",      "Small",  "Pirates",       "Stingray Raider"),
+    ("terraformador_ligeiro","Medium", "United Humans", "Terraformador Ligeiro"),
 ]
 
 DISP = 4  # fator de upscale na exibição
@@ -90,10 +92,10 @@ def main():
     for gy in range(0, H, 40):
         draw.line([(0, gy), (W, gy)], fill=(16, 19, 30, 255), width=1)
 
-    draw.text((gap, 22), "Detalhamento de naves — ANTES / DEPOIS",
+    draw.text((gap, 22), "Modelos de naves — inspiração Gemini",
               fill=(0, 220, 255), font=_font(26))
     draw.text((gap, 56),
-              "motores c/ bocal+glow · luzes de navegação · tron line · bisel de painel · volume",
+              "Skiff Mk II · Wasp Mk III · Prospector · Heavy Mule · Stingray · Terraformador",
               fill=(150, 170, 190), font=_font(12, bold=False))
 
     # cabeçalhos de coluna

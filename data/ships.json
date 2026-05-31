@@ -78,11 +78,11 @@
         {
             "id": "mule_trader",
             "model_id": "mule_trader",
-            "name": "Mule",
+            "name": "Heavy Mule",
             "class": "Medium",
             "role": "Trader",
             "tier": 1,
-            "description": "Cargueiro pequeno de primeira viagem. Compartimento de carga grande, blindagem decente, dois motores robustos. Lenta como sua tia descendo escadas, mas paga as contas.",
+            "description": "Cargueiro pesado de longa distância. Dois blocos de carga modulares, blindagem reforçada, par de motores industriais. Lenta como um asteroide, mas paga as contas melhor que qualquer caça.",
             "starting_ship": false,
             "base_price": 95000,
             "base_stats": {
@@ -98,6 +98,56 @@
                 "weapon_medium": 1,
                 "weapon_large": 0,
                 "utility": 2
+            }
+        },
+        {
+            "id": "stingray_raider",
+            "model_id": "stingray_raider",
+            "name": "Stingray Raider",
+            "class": "Small",
+            "role": "Combat",
+            "tier": 2,
+            "description": "Caça pirata de asa arraia ultra-larga. A silhueta espalmada garante baixo perfil frontal e manobrabilidade lateral brutal. Frágil no centro — mas raro é o piloto que consegue acertar antes de ser destruído.",
+            "starting_ship": false,
+            "base_price": 58000,
+            "base_stats": {
+                "mass": 95,
+                "energy_capacity": 85,
+                "heat_dissipation": 6,
+                "hull_hp": 65,
+                "shields_max": 85,
+                "cargo_capacity": 3
+            },
+            "hardpoints": {
+                "weapon_small": 3,
+                "weapon_medium": 1,
+                "weapon_large": 0,
+                "utility": 0
+            }
+        },
+        {
+            "id": "terraformador_ligeiro",
+            "model_id": "terraformador_ligeiro",
+            "name": "Terraformador",
+            "class": "Medium",
+            "role": "Utility",
+            "tier": 2,
+            "description": "Nave de serviço utilitária da Coalizão Humana. Plataforma de trabalho generosa, braços de apoio lateral e motores confiáveis. Pensada para ambientes hostis, não para duelos.",
+            "starting_ship": false,
+            "base_price": 110000,
+            "base_stats": {
+                "mass": 280,
+                "energy_capacity": 160,
+                "heat_dissipation": 12,
+                "hull_hp": 180,
+                "shields_max": 140,
+                "cargo_capacity": 50
+            },
+            "hardpoints": {
+                "weapon_small": 1,
+                "weapon_medium": 0,
+                "weapon_large": 0,
+                "utility": 4
             }
         }
     ]
