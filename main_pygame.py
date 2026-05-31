@@ -195,10 +195,10 @@ class SpaceRPGVisual:
             self.energy_mgr.ship = player
 
     def _setup_npcs(self):
+        # Pirate spawn is 1200+ px from player (detection_range=1000), so the
+        # player must fly toward Hub Beta before encountering it.
         npcs = [
-            ("Pirates",     "Small",  "wasp_combat",        100, [900, 300],
-             {"hp": 70, "shields": 80}),
-            ("Pirates",     "Small",  "wasp_combat",        100, [900, 600],
+            ("Pirates",     "Small",  "wasp_combat",        100, [1800, 300],
              {"hp": 70, "shields": 80}),
             ("Independent", "Small",  "albatross_explorer", 130, [200, 200],
              {"hp": 75, "shields": 90}),
@@ -376,14 +376,18 @@ class SpaceRPGVisual:
         new_template.credits = player.credits
         new_template.faction = player.faction
 
-        # Remove a ship antiga e spawn da nova na mesma posição
+        # Remove a ship antiga e spawn da nova na mesma posição.
+        # remove_entity emite ENTITY_REMOVED para limpar referências no NPCManager.
         old_pos = list(player.position)
-        del self.universe.entities[self.player_id]
+        self.universe.remove_entity(self.player_id)
         self.player_id = self.universe.spawn_ship(new_template, old_pos)
         new_player = self.universe.entities[self.player_id]
 
         # Re-aponta managers para a nova ship
         self.player_mgr.ship = new_player
+        # PlayerManager adiciona 'pips' dinamicamente no __init__; a nova Ship
+        # criada por spawn_ship não tem esse atributo — restauramos aqui.
+        new_player.pips = dict(self.player_mgr.pips)
         self.energy_mgr.ship = new_player
 
         # Atualiza referência na UI
@@ -488,6 +492,7 @@ class SpaceRPGVisual:
         new_player = self.universe.entities[self.player_id]
 
         self.player_mgr.ship = new_player
+        new_player.pips = dict(self.player_mgr.pips)  # restore pips mirror for HUD
         self.energy_mgr.ship = new_player
 
         self.game_state = "playing"
