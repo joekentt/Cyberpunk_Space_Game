@@ -14,6 +14,7 @@ Controles:
 
 import os
 import sys
+import json
 import math
 import pygame
 
@@ -74,6 +75,11 @@ class SpaceRPGVisual:
 
         # Textos flutuantes de recompensa: [{text, world_pos, timer, color}, ...]
         self._floating_texts = []
+
+        # Catálogo de naves (para derivar hardpoints das naves spawnadas)
+        ships_path = os.path.join(os.path.dirname(__file__), "data", "ships.json")
+        with open(ships_path, "r", encoding="utf-8") as f:
+            self._ships_catalog = json.load(f)["ships"]
 
         self.player_id = None
         self.player_mgr = None
@@ -142,6 +148,13 @@ class SpaceRPGVisual:
         )
         self.station_mgr.spawn_station(hub2)
 
+    def _hardpoints_for(self, model_id: str) -> dict:
+        """Busca os hardpoints declarados no ships.json por model_id/id."""
+        for s in self._ships_catalog:
+            if s.get("model_id") == model_id or s.get("id") == model_id:
+                return dict(s.get("hardpoints", {}))
+        return {}
+
     def _spawn_player(self):
         template = Ship(
             id="player_skiff",
@@ -156,6 +169,7 @@ class SpaceRPGVisual:
             is_player=True,
             faction="United Humans",
             credits=STARTING_CREDITS,
+            hardpoints=self._hardpoints_for("starter_skiff"),
         )
         self.player_id = self.universe.spawn_ship(template, [600, 400])
         player = self.universe.entities[self.player_id]
@@ -191,6 +205,7 @@ class SpaceRPGVisual:
                 max_hp=stats["hp"], current_hp=stats["hp"],
                 max_shields=stats["shields"], current_shields=stats["shields"],
                 faction=faction,
+                hardpoints=self._hardpoints_for(model_id),
             )
             sid = self.universe.spawn_ship(template, list(pos))
             self.npc_mgr.register_npc(sid, initial_state=NPCBehavior.IDLE)
@@ -414,6 +429,7 @@ class SpaceRPGVisual:
             is_player=True,
             faction="United Humans",
             credits=new_credits,
+            hardpoints=self._hardpoints_for("starter_skiff"),
         )
         # Garante que o slot do player não está mais ocupado
         if self.player_id in self.universe.entities:

@@ -363,6 +363,12 @@ class StationUI:
         if hp.get("utility", 0): hp_str_parts.append(f"{hp['utility']}U")
         hp_str = " + ".join(hp_str_parts) if hp_str_parts else "—"
 
+        # Poder de fogo derivado dos hardpoints de arma (mesma fórmula do
+        # CombatManager.hardpoint_firepower): small*1 + medium*3 + large*9.
+        firepower = (hp.get("weapon_small", 0) * 1
+                     + hp.get("weapon_medium", 0) * 3
+                     + hp.get("weapon_large", 0) * 9) or 1
+
         rows = [
             ("CASCO", f"{stats.get('hull_hp', '—')} HP"),
             ("ESCUDOS", f"{stats.get('shields_max', '—')}"),
@@ -370,13 +376,22 @@ class StationUI:
             ("MASSA", f"{stats.get('mass', '—')} t"),
             ("CARGA", f"{stats.get('cargo_capacity', '—')} m³"),
             ("HARDPOINTS", hp_str),
+            ("PODER DE FOGO", f"x{firepower} dano/tiro"),
         ]
         for k, v in rows:
             l = self.font_small.render(k, True, (120, 140, 160))
             screen.blit(l, (x + 16, sy))
-            r = self.font_body.render(str(v), True, (220, 230, 240))
+            highlight = (255, 200, 80) if k == "PODER DE FOGO" else (220, 230, 240)
+            r = self.font_body.render(str(v), True, highlight)
             screen.blit(r, (x + 130, sy))
             sy += 20
+
+        note = self.font_small.render(
+            "Mais hardpoints de arma = mais poder de fogo.",
+            True, (140, 170, 200),
+        )
+        screen.blit(note, (x + 16, sy + 2))
+        sy += 18
 
         # Preço
         price = sd.get("base_price", 0)

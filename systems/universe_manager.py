@@ -35,6 +35,7 @@ class UniverseManager:
             current_hp=ship_template.current_hp,
             max_hp=ship_template.max_hp,
             modules=list(ship_template.modules),
+            hardpoints=dict(ship_template.hardpoints),
             is_player=ship_template.is_player,
             faction=ship_template.faction,
             credits=ship_template.credits,

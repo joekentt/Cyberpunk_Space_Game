@@ -36,7 +36,12 @@ class Ship:
     
     # Módulos
     modules: List[Module] = field(default_factory=list)
-    
+
+    # Hardpoints declarados (de ships.json). Ex:
+    # {"weapon_small": 2, "weapon_medium": 0, "weapon_large": 0, "utility": 1}
+    # Define o poder de fogo da nave (ver CombatManager.hardpoint_firepower).
+    hardpoints: Dict[str, int] = field(default_factory=dict)
+
     # Atributos de Identidade
     is_player: bool = False
     faction: str = "Independent"
@@ -74,4 +79,5 @@ class Ship:
             max_hp=hp,
             current_shields=shields,
             max_shields=shields,
+            hardpoints=dict(data.get("hardpoints", {})),
         )
