@@ -27,6 +27,7 @@ from systems.npc_manager import NPCManager, NPCBehavior
 from systems.energy_manager import EnergyManager
 from systems.combat_manager import CombatManager, DEFAULT_WEAPONS
 from systems.station_manager import StationManager
+from systems.loot_manager import LootManager
 from visual_engine.procedural_assembler import ProceduralShipAssembler
 from visual_engine.station_generator import StationGenerator
 from visual_engine.vfx_generator import VFXGenerator, render_projectile
@@ -69,6 +70,10 @@ class SpaceRPGVisual:
         self.npc_mgr = NPCManager(self.universe)
         self.combat_mgr = CombatManager(self.universe)
         self.station_mgr = StationManager(self.universe)
+        self.loot_mgr = LootManager()
+
+        # Textos flutuantes de recompensa: [{text, world_pos, timer, color}, ...]
+        self._floating_texts = []
 
         self.player_id = None
         self.player_mgr = None
@@ -351,10 +356,29 @@ class SpaceRPGVisual:
         self.station_ui.player = new_player
 
     def _on_ship_destroyed(self, data):
-        """Se foi a nave do player, dispara fluxo de respawn."""
-        if data["ship_id"] == self.player_id:
+        ship_id = data["ship_id"]
+        attacker_id = data.get("attacker_id")
+
+        if ship_id == self.player_id:
             self.game_state = "dying"
-            self.death_timer = 3.0  # 3s de tela de morte antes de respawn
+            self.death_timer = 3.0
+            return
+
+        # Recompensa apenas se o player foi o autor do abate
+        if attacker_id != self.player_id:
+            return
+
+        loot = self.loot_mgr.generate_loot(data.get("ship_class", "Small"))
+        credits_won = loot["credits"]
+        player = self.universe.entities.get(self.player_id)
+        if player:
+            player.credits += credits_won
+            self._floating_texts.append({
+                "text": f"+{credits_won} cr",
+                "pos": list(data.get("position", player.position)),
+                "timer": 2.2,
+                "color": (255, 215, 0),
+            })
 
     # -------------------------------------------------------------- respawn
 
@@ -437,6 +461,13 @@ class SpaceRPGVisual:
                 if self.death_timer <= 0:
                     self._respawn()
 
+            # Textos flutuantes decaem independente do game_state
+            self._floating_texts = [
+                {**ft, "timer": ft["timer"] - dt, "pos": [ft["pos"][0], ft["pos"][1] - 24 * dt]}
+                for ft in self._floating_texts
+                if ft["timer"] - dt > 0
+            ]
+
             self._render()
 
         pygame.quit()
@@ -464,6 +495,15 @@ class SpaceRPGVisual:
                     self.screen, proj.position, proj.color, proj.weapon_type,
                     self.camera.offset, rotation=rot
                 )
+
+        # Textos flutuantes de recompensa (espaço de mundo → espaço de tela)
+        for ft in self._floating_texts:
+            alpha = min(255, int(255 * ft["timer"] / 2.2))
+            sx = int(ft["pos"][0] - self.camera.offset[0])
+            sy = int(ft["pos"][1] - self.camera.offset[1])
+            surf = self.info_font.render(ft["text"], True, ft["color"])
+            surf.set_alpha(alpha)
+            self.screen.blit(surf, surf.get_rect(center=(sx, sy)))
 
         player = self.universe.entities.get(self.player_id)
 

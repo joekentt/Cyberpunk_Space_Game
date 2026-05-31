@@ -206,17 +206,18 @@ class CombatManager:
             "shield_hit": current_shields > 0,
         })
 
-        # Verifica destruição
+        # Verifica destruição — propaga o atirador para o evento
         if getattr(target, "current_hp", 1.0) <= 0.0:
-            self._destroy_ship(target)
+            self._destroy_ship(target, attacker_id=proj.owner_id)
 
-    def _destroy_ship(self, ship):
+    def _destroy_ship(self, ship, attacker_id: str = None):
         """Marca a nave como destruída e emite eventos."""
         bus.emit("SHIP_DESTROYED", {
             "ship_id": ship.id,
             "position": list(ship.position),
             "faction": getattr(ship, "faction", "Independent"),
             "ship_class": getattr(ship, "ship_class", "Small"),
+            "attacker_id": attacker_id,   # quem disparou o tiro fatal
         })
         # Remove do universo
         if ship.id in self.universe.entities:
