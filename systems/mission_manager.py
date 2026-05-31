@@ -76,6 +76,36 @@ class MissionManager:
         for m_id in to_complete:
             self.complete_mission(m_id)
 
+    def record_kill(self, target_faction: str):
+        """
+        Registra um kill para missões BOUNTY ativas que peçam eliminar
+        naves da facção informada. Completa automaticamente quando atingir
+        o contador requerido.
+        """
+        to_complete = []
+        for m_id, mission in self.active_missions.items():
+            if mission.type != "BOUNTY":
+                continue
+            kill_obj = next(
+                (o for o in mission.objectives if o.get("type") == "KILL"),
+                None,
+            )
+            if kill_obj is None:
+                continue
+            if kill_obj.get("target_faction") != target_faction:
+                continue
+            mission.kill_progress += 1
+            required = kill_obj.get("count", 1)
+            bus.emit("MISSION_PROGRESS", {
+                "mission_id": m_id,
+                "progress": mission.kill_progress,
+                "required": required,
+            })
+            if mission.kill_progress >= required:
+                to_complete.append(m_id)
+        for m_id in to_complete:
+            self.complete_mission(m_id)
+
     def complete_mission(self, mission_id: str):
         """Finaliza uma missão com sucesso e emite recompensas."""
         if mission_id in self.active_missions:

@@ -10,7 +10,7 @@
                 "aggression": -5,
                 "political_alignment": 5
             },
-            "objectives": [{"type": "KILL", "target": "pirate_scout", "count": 1}]
+            "objectives": [{"type": "KILL", "target_faction": "Pirates", "count": 3}]
         },
         {
             "type": "COURIER",

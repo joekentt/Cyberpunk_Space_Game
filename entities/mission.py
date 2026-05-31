@@ -29,7 +29,10 @@ class Mission:
     # Metadados procedurais
     target_system: str = ""
     target_entity_id: str = ""
-    
+
+    # Progresso de kills (para missões BOUNTY)
+    kill_progress: int = 0
+
     def to_dict(self) -> Dict[str, Any]:
         """Converte a missão para um dicionário para persistência."""
         return {
@@ -43,7 +46,8 @@ class Mission:
             "objectives": self.objectives,
             "status": self.status.value,
             "target_system": self.target_system,
-            "target_entity_id": self.target_entity_id
+            "target_entity_id": self.target_entity_id,
+            "kill_progress": self.kill_progress,
         }
 
     @classmethod
@@ -60,6 +64,7 @@ class Mission:
             objectives=data["objectives"],
             status=MissionStatus(data["status"]),
             target_system=data.get("target_system", ""),
-            target_entity_id=data.get("target_entity_id", "")
+            target_entity_id=data.get("target_entity_id", ""),
+            kill_progress=data.get("kill_progress", 0),
         )
         return mission

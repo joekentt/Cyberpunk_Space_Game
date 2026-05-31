@@ -59,6 +59,36 @@ Velocidade de cruzeiro resultante (Skiff, massa 120): ~150 unidades/s.
 
 ---
 
+## Poder de fogo por hardpoints
+
+As naves declaram `hardpoints` no `data/ships.json`
+(`weapon_small/medium/large`, `utility`). Esse campo agora é propagado para o
+`Ship` (campo `hardpoints`), via `Ship.from_dict` e `UniverseManager.spawn_ship`.
+
+O `CombatManager` deriva o **multiplicador de dano por disparo** dos hardpoints
+de arma (`CombatManager.hardpoint_firepower`):
+
+```
+firepower = weapon_small*1 + weapon_medium*3 + weapon_large*9   (fallback 1.0)
+```
+
+Cada porte vale ~3× o anterior. `fire()` multiplica `proj.damage` por esse
+valor — vale para player **e** NPCs (ambos passam por `fire`). Naves sem
+hardpoint de arma usam `1.0` (nunca zera o dano nem crasha).
+
+| Nave | Hardpoints | firepower |
+|---|---|---|
+| Skiff | 2S | x2 |
+| Wasp | 4S + 1M | x7 |
+| Mule | 1S + 1M | x4 |
+| Albatross | 1S | x1 |
+
+Escopo deliberadamente simples (sem sistema de módulos — ver ADR 001): o
+armamento é derivado dos hardpoints já declarados, não de Modules equipados.
+O painel do mercado (`StationUI`) mostra a linha "PODER DE FOGO".
+
+---
+
 ## Executar e testar
 
 ```bash
@@ -70,6 +100,9 @@ SDL_VIDEODRIVER=dummy python main_pygame.py   # smoke headless (sem janela)
 python tests/test_docking.py
 python tests/test_movement.py
 python tests/test_input_config.py
+python tests/test_combat.py
+python tests/test_economy_loop.py
+python tests/test_hardpoints.py
 ```
 
 Os testes em `tests/` que cobrem lógica pura (movimento, docking, input config)

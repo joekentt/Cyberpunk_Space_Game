@@ -77,6 +77,31 @@ class CombatManager:
 
     # ----- API pública --------------------------------------------------
 
+    @staticmethod
+    def hardpoint_firepower(shooter) -> float:
+        """
+        Deriva o multiplicador de dano dos hardpoints de arma da nave.
+
+        Fórmula (peso por porte, cada porte ~3x o anterior):
+            firepower = weapon_small*1 + weapon_medium*3 + weapon_large*9
+
+        Naves sem nenhum hardpoint de arma usam fallback 1.0 (equivalente a
+        uma arma pequena), garantindo que o dano nunca zere nem crashe.
+
+        Exemplos (ships.json):
+            Skiff (2S)        → 2
+            Wasp  (4S + 1M)   → 7
+            Mule  (1S + 1M)   → 4
+            Albatross (1S)    → 1
+        """
+        hp = getattr(shooter, "hardpoints", None) or {}
+        firepower = (
+            hp.get("weapon_small", 0) * 1
+            + hp.get("weapon_medium", 0) * 3
+            + hp.get("weapon_large", 0) * 9
+        )
+        return float(firepower) if firepower > 0 else 1.0
+
     def fire(self, shooter, weapon_id: str = "kinetic_small") -> bool:
         """Tenta disparar uma arma. Retorna True se conseguiu (cooldown OK)."""
         cd_key = f"{shooter.id}:{weapon_id}"
@@ -90,6 +115,8 @@ class CombatManager:
             weapon_template=template,
             projectile_id=f"proj_{self._next_id}",
         )
+        # Hardpoints da nave escalam o dano por disparo (poder de fogo)
+        proj.damage *= self.hardpoint_firepower(shooter)
         self._next_id += 1
         self.projectiles[proj.id] = proj
         self.cooldowns[cd_key] = template["cooldown"]
