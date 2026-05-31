@@ -21,6 +21,44 @@ main_pygame.py   entry-point visual (Pygame)
 main.py          entry-point console
 ```
 
+## Sistema de movimento da nave
+
+O `PlayerManager` (`systems/player_manager.py`) aplica física vetorial por frame via EventBus.
+
+### Empuxo (hierarquia de força)
+
+| Ação | Constante | Força relativa |
+|---|---|---|
+| Motor principal (frente) | `thrust_power = 3000 N` | 100% |
+| Ré | `reverse_power = 1650 N` | 55% |
+| Strafe lateral (RCS) | `strafe_power = 1350 N` | 45% |
+
+Todos os valores escalam pelo modificador de pips de engines:
+`engine_mod = 0.5 + (pips["engines"] / 4.0) * 0.5` (50% a 100%).
+
+### Throttle estilo Elite Dangerous (W / S)
+
+`thrust_value > 0` → motor principal empurra na direção do bico.
+`thrust_value < 0` → empuxo na direção **oposta** ao bico com a força de ré.
+Partindo de velocidade frontal positiva, `S` primeiro **freia** e, ao cruzar
+o ponto morto (velocidade zero), **engata a ré**.
+
+### Strafe (Q / E)
+
+`strafe()` calcula o vetor perpendicular ao bico (`right = (-fy, fx)`) e aplica
+o empuxo lateral **sem alterar `ship.rotation`**. Q = esquerda, E = direita.
+
+### Drag (atrito de jogabilidade)
+
+```python
+drag = 0.997
+velocity *= drag ** (dt * 60)   # ~17 % de perda por segundo a 60 fps
+```
+
+Velocidade de cruzeiro resultante (Skiff, massa 120): ~150 unidades/s.
+
+---
+
 ## Executar e testar
 
 ```bash
@@ -103,9 +141,18 @@ jogador sai da tela (o loop então volta para `"paused"`).
 
 ### Estados de jogo (`self.game_state`)
 
-`"playing"` | `"paused"` | `"keybinds"` | `"docked"` | `"dying"`. A tecla de
-pausa (configurável) só abre o menu durante `"playing"`; ESC nunca fecha o
-jogo diretamente — sair exige a opção "SAIR DO JOGO" no menu de pausa.
+| Estado | Descrição |
+|---|---|
+| `"playing"` | Gameplay normal; inputs contínuos ativos |
+| `"paused"` | Menu de pausa (CONTINUAR / CONFIGURAR TECLAS / SAIR DO JOGO) |
+| `"keybinds"` | Tela de remapeamento de teclas; todos os eventos vão para `KeybindsUI` |
+| `"docked"` | UI da estação aberta; lógica de jogo pausada |
+| `"dying"` | Animação de morte (3 s) antes do respawn |
+
+Regras de transição importantes:
+- A tecla de pausa (configurável) só abre o menu durante `"playing"`.
+- ESC **nunca fecha o jogo diretamente** — sair exige "SAIR DO JOGO" no menu de pausa.
+- Desacoplar (F no menu da estação) faz transição direta `"docked"` → `"playing"` sem ambiguidade.
 
 ### Como adicionar uma nova ação remapeável
 
