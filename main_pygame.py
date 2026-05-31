@@ -2,12 +2,14 @@
 Entry point visual do Cyberpunk Space RPG.
 
 Controles:
-  W            acelerar
-  A / D        rotacionar esquerda / direita
+  W            acelerar (aumentar throttle / frente)
+  S            frear e engatar ré (diminuir throttle)
+  A / D        girar o bico esquerda / direita
+  Q / E        strafe lateral esquerda / direita (thrusters RCS)
   ESPAÇO       disparar arma primária
   F            acoplar/desacoplar em estação (quando dentro do raio)
   1 / 2 / 3    realocar pip para Weapons / Shields / Engines
-  ESC          sair (ou voltar na UI da estação)
+  ESC          pausar / voltar na UI da estação
 """
 
 import os
@@ -18,6 +20,7 @@ import pygame
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.event_bus import bus
+from core.input_config import InputConfig
 from systems.universe_manager import UniverseManager
 from systems.player_manager import PlayerManager
 from systems.npc_manager import NPCManager, NPCBehavior
@@ -30,6 +33,7 @@ from visual_engine.vfx_generator import VFXGenerator, render_projectile
 from visual_engine.camera import Camera, ParallaxBackground
 from visual_engine.hud import HUD
 from visual_engine.station_ui import StationUI
+from visual_engine.keybinds_ui import KeybindsUI
 from visual_engine.palette_manager import PaletteManager
 from entities.ship import Ship
 from entities.station import Station
@@ -50,9 +54,15 @@ class SpaceRPGVisual:
         self.running = True
 
         # Estado global do jogo
-        # "playing" | "docked" | "dying" (animação curta de morte)
+        # "playing" | "paused" | "keybinds" | "docked" | "dying"
         self.game_state = "playing"
+        self._pause_selection = 0
         self.death_timer = 0.0
+
+        # Configuração de teclas (carrega de config/keybinds.json, ou padrões)
+        self.input_cfg = InputConfig()
+        self._keymap = {}            # action -> keycode pygame
+        self._rebuild_keymap()
 
         # Lógica
         self.universe = UniverseManager()
@@ -84,6 +94,9 @@ class SpaceRPGVisual:
         # UI overlay
         ships_data = os.path.join(os.path.dirname(__file__), "data", "ships.json")
         self.station_ui = StationUI(WIDTH, HEIGHT, ships_data)
+        self.keybinds_ui = KeybindsUI(
+            WIDTH, HEIGHT, self.input_cfg, on_change=self._rebuild_keymap
+        )
 
         # Fontes
         self.label_font = pygame.font.SysFont("Consolas", 12)
@@ -177,6 +190,41 @@ class SpaceRPGVisual:
             sid = self.universe.spawn_ship(template, list(pos))
             self.npc_mgr.register_npc(sid, initial_state=NPCBehavior.IDLE)
 
+    # -------------------------------------------------------------- input config
+
+    def _rebuild_keymap(self):
+        """(Re)constrói o dict action -> keycode a partir do InputConfig."""
+        self._keymap = {}
+        for action in self.input_cfg.ACTIONS:
+            name = self.input_cfg.get(action)
+            try:
+                self._keymap[action] = pygame.key.key_code(name)
+            except (ValueError, TypeError):
+                # Nome inválido: cai no default da ação para não quebrar o input
+                default = self.input_cfg.DEFAULTS[action]
+                self._keymap[action] = pygame.key.key_code(default)
+
+    def _key(self, action: str) -> int:
+        """Keycode pygame atualmente ligado a uma ação."""
+        return self._keymap.get(action, -1)
+
+    def _pause_options(self):
+        """Opções do menu de pausa: (rótulo, chave de ação)."""
+        return [
+            ("CONTINUAR", "resume"),
+            ("CONFIGURAR TECLAS", "keybinds"),
+            ("SAIR DO JOGO", "quit"),
+        ]
+
+    def _activate_pause_option(self, key: str):
+        if key == "resume":
+            self.game_state = "playing"
+        elif key == "keybinds":
+            self.keybinds_ui.open()
+            self.game_state = "keybinds"
+        elif key == "quit":
+            self.running = False
+
     # -------------------------------------------------------------- input
 
     def _handle_input(self):
@@ -185,32 +233,62 @@ class SpaceRPGVisual:
                 self.running = False
                 continue
 
-            # Quando UI da estação está aberta, ela come os eventos
+            # UI da estação consome eventos quando acoplado
             if self.game_state == "docked":
                 if self.station_ui.handle_event(ev):
                     continue
-                # Se UI não tratou e foi ESC, ignora (não fecha o jogo)
+                # ESC no menu principal da estação: ignorar (nunca fecha o jogo)
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     continue
 
-            if ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_ESCAPE:
-                    self.running = False
-                elif ev.key == pygame.K_f and self.game_state == "playing":
-                    bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
-                elif ev.key == pygame.K_1:
-                    bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "weapons"})
-                elif ev.key == pygame.K_2:
-                    bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "shields"})
-                elif ev.key == pygame.K_3:
-                    bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "engines"})
+            # Tela de configuração de teclas consome todos os eventos
+            if self.game_state == "keybinds":
+                if self.keybinds_ui.handle_event(ev) == "close":
+                    self.game_state = "paused"
+                    self._pause_selection = 0
+                continue
+
+            if ev.type != pygame.KEYDOWN:
+                continue
+
+            # Tecla de pausa (configurável) abre o menu durante o jogo
+            if self.game_state == "playing" and ev.key == self._key("pause"):
+                self.game_state = "paused"
+                self._pause_selection = 0
+                continue
+
+            # Navegação do menu de pausa
+            if self.game_state == "paused":
+                opts = self._pause_options()
+                # ESC ou a tecla de pausa retomam o jogo
+                if ev.key == pygame.K_ESCAPE or ev.key == self._key("pause"):
+                    self.game_state = "playing"
+                elif ev.key == pygame.K_UP:
+                    self._pause_selection = (self._pause_selection - 1) % len(opts)
+                elif ev.key == pygame.K_DOWN:
+                    self._pause_selection = (self._pause_selection + 1) % len(opts)
+                elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    self._activate_pause_option(opts[self._pause_selection][1])
+                continue
+
+            if self.game_state != "playing":
+                continue
+
+            if ev.key == self._key("dock_toggle"):
+                bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
+            elif ev.key == pygame.K_1:
+                bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "weapons"})
+            elif ev.key == pygame.K_2:
+                bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "shields"})
+            elif ev.key == pygame.K_3:
+                bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "engines"})
 
         # Inputs contínuos só durante "playing"
         if self.game_state != "playing":
             return
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_w]:
+        if keys[self._key("thrust_forward")]:
             bus.emit("PLAYER_INPUT", {"action": "thrust", "value": 1.0})
             player = self.universe.entities.get(self.player_id)
             if player:
@@ -218,11 +296,18 @@ class SpaceRPGVisual:
                 self.vfx.create_engine_trail(
                     tuple(player.position), player.rotation, palette["accent"][:3]
                 )
-        if keys[pygame.K_a]:
+        if keys[self._key("thrust_back")]:
+            # Throttle negativo: freia e, no ponto morto, engata ré
+            bus.emit("PLAYER_INPUT", {"action": "thrust", "value": -1.0})
+        if keys[self._key("rotate_left")]:
             bus.emit("PLAYER_INPUT", {"action": "rotate", "value": -1.0})
-        if keys[pygame.K_d]:
+        if keys[self._key("rotate_right")]:
             bus.emit("PLAYER_INPUT", {"action": "rotate", "value": 1.0})
-        if keys[pygame.K_SPACE]:
+        if keys[self._key("strafe_left")]:
+            bus.emit("PLAYER_INPUT", {"action": "strafe", "value": -1.0})
+        if keys[self._key("strafe_right")]:
+            bus.emit("PLAYER_INPUT", {"action": "strafe", "value": 1.0})
+        if keys[self._key("shoot")]:
             bus.emit("PLAYER_INPUT", {"action": "shoot", "value": 1.0})
 
     # -------------------------------------------------------------- bus listeners
@@ -382,11 +467,16 @@ class SpaceRPGVisual:
 
         player = self.universe.entities.get(self.player_id)
 
-        # HUD durante gameplay
-        if self.game_state == "playing" and player:
+        # HUD durante gameplay (mostra também em pausa para o fundo ficar visível)
+        if self.game_state in ("playing", "paused") and player:
             self.hud.draw(self.screen, player)
             self._draw_combat_hud(player)
             self._draw_docking_prompt()
+
+        if self.game_state == "paused":
+            self._draw_pause_menu()
+        elif self.game_state == "keybinds":
+            self.keybinds_ui.draw(self.screen)
         elif self.game_state == "docked":
             self.station_ui.draw(self.screen)
         elif self.game_state == "dying":
@@ -520,14 +610,36 @@ class SpaceRPGVisual:
         )
         self.screen.blit(loss, loss.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 42)))
 
+    def _draw_pause_menu(self):
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (0, 0))
+
+        title = self.big_font.render("PAUSADO", True, (0, 220, 255))
+        self.screen.blit(title, title.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60)))
+
+        options = self._pause_options()
+        for i, (label, _) in enumerate(options):
+            color = (255, 220, 120) if i == self._pause_selection else (180, 200, 220)
+            prefix = "▸ " if i == self._pause_selection else "  "
+            text = self.info_font.render(prefix + label, True, color)
+            self.screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + i * 36)))
+
+        hint = self.label_font.render(
+            "ESC = continuar   ↑↓ = navegar   ENTER = confirmar",
+            True, (120, 140, 160),
+        )
+        self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 96)))
+
     def _draw_controls(self):
-        if self.game_state == "docked":
-            return  # UI da estação cuida do seu próprio help
+        if self.game_state in ("docked", "paused", "keybinds"):
+            return  # UI da estação / pausa / keybinds cuida do próprio help
         lines = [
-            "W = thrust   A/D = rotate",
+            "W/S = throttle (frente/ré)",
+            "A/D = girar    Q/E = strafe",
             "ESPAÇO = disparar    F = acoplar",
             "1/2/3 = realocar PIP",
-            "ESC = sair",
+            "ESC = pausar",
         ]
         y = HEIGHT - 80
         for line in lines:

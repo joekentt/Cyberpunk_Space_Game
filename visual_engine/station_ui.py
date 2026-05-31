@@ -104,6 +104,9 @@ class StationUI:
             # Desacopla diretamente do menu principal
             bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
             return True
+        if ev.key == pygame.K_ESCAPE:
+            # Consome ESC no SCREEN_MAIN: nunca propaga para fechar o jogo
+            return True
         return False
 
     def _handle_shipyard(self, ev) -> bool:
