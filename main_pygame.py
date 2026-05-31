@@ -320,9 +320,9 @@ class SpaceRPGVisual:
             return
 
         keys = pygame.key.get_pressed()
+        player = self.universe.entities.get(self.player_id)
         if keys[self._key("thrust_forward")]:
             bus.emit("PLAYER_INPUT", {"action": "thrust", "value": 1.0})
-            player = self.universe.entities.get(self.player_id)
             if player:
                 palette = self.palette_mgr.get_palette(player.faction)
                 self.vfx.create_engine_trail(
@@ -331,16 +331,53 @@ class SpaceRPGVisual:
         if keys[self._key("thrust_back")]:
             # Throttle negativo: freia e, no ponto morto, engata ré
             bus.emit("PLAYER_INPUT", {"action": "thrust", "value": -1.0})
+            if player:
+                self._rcs_vfx(player, "reverse")
         if keys[self._key("rotate_left")]:
             bus.emit("PLAYER_INPUT", {"action": "rotate", "value": -1.0})
         if keys[self._key("rotate_right")]:
             bus.emit("PLAYER_INPUT", {"action": "rotate", "value": 1.0})
         if keys[self._key("strafe_left")]:
             bus.emit("PLAYER_INPUT", {"action": "strafe", "value": -1.0})
+            if player:
+                self._rcs_vfx(player, "strafe", direction=-1.0)
         if keys[self._key("strafe_right")]:
             bus.emit("PLAYER_INPUT", {"action": "strafe", "value": 1.0})
+            if player:
+                self._rcs_vfx(player, "strafe", direction=1.0)
         if keys[self._key("shoot")]:
             bus.emit("PLAYER_INPUT", {"action": "shoot", "value": 1.0})
+
+    def _rcs_vfx(self, player, kind: str, direction: float = 0.0):
+        """
+        Cria o jato de RCS (ré ou strafe) coerente com a física do
+        PlayerManager. Usa a mesma matemática de vetor perpendicular
+        (right = (-fy, fx)) para posicionar a origem do jato.
+        """
+        palette = self.palette_mgr.get_palette(player.faction)
+        color = palette["accent"][:3]
+        rad = math.radians(player.rotation)
+        forward = (math.cos(rad), math.sin(rad))
+        right = (-forward[1], forward[0])
+        px, py = player.position
+
+        if kind == "reverse":
+            # RCS de freio no nariz: o gás escapa pela FRENTE, empurrando a
+            # nave para trás. Origem no bico, jato na direção do bico.
+            nose = 16
+            origin = (px + forward[0] * nose, py + forward[1] * nose)
+            jet_dir = math.degrees(math.atan2(forward[1], forward[0]))
+            self.vfx.create_rcs_puff(origin, jet_dir, color, strength="reverse")
+        else:  # strafe: jato sai do lado OPOSTO ao movimento
+            side = 12
+            if direction > 0:   # strafe à direita (E): jato sai da esquerda
+                origin = (px - right[0] * side, py - right[1] * side)
+                jet = (-right[0], -right[1])
+            else:               # strafe à esquerda (Q): jato sai da direita
+                origin = (px + right[0] * side, py + right[1] * side)
+                jet = (right[0], right[1])
+            jet_dir = math.degrees(math.atan2(jet[1], jet[0]))
+            self.vfx.create_rcs_puff(origin, jet_dir, color, strength="strafe")
 
     # -------------------------------------------------------------- bus listeners
 

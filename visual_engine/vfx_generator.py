@@ -123,16 +123,56 @@ class VFXGenerator:
     def set_universe(self, universe_manager):
         self.universe = universe_manager
 
-    def create_engine_trail(self, pos, angle: float, color):
-        rad = math.radians(angle + 180)
-        for _ in range(2):
-            speed = random.uniform(80, 140)
-            vel = [math.cos(rad) * speed + random.uniform(-20, 20),
-                   math.sin(rad) * speed + random.uniform(-20, 20)]
+    def create_thruster_jet(self, origin, jet_dir_deg: float, color, *,
+                            count: int = 2, speed_range=(80, 140), size: int = 2,
+                            life_range=(0.25, 0.45), spread: float = 20.0):
+        """
+        Emite um jato de partículas a partir de `origin`, viajando na direção
+        `jet_dir_deg` (graus, sentido do escape do gás). É a base comum para o
+        motor principal (rastro grande) e os thrusters de RCS (jatos curtos).
+
+        A hierarquia de força é expressa pelos parâmetros: mais `count`, `size`,
+        `speed_range` e `life_range` = jato maior/mais forte.
+        """
+        rad = math.radians(jet_dir_deg)
+        for _ in range(count):
+            speed = random.uniform(*speed_range)
+            vel = [math.cos(rad) * speed + random.uniform(-spread, spread),
+                   math.sin(rad) * speed + random.uniform(-spread, spread)]
             self.particles.append(Particle(
-                pos, vel, color, life=random.uniform(0.25, 0.45),
-                size=2, fade=True
+                origin, vel, color, life=random.uniform(*life_range),
+                size=size, fade=True
             ))
+
+    def create_engine_trail(self, pos, angle: float, color):
+        """Motor principal: rastro grande, escape na direção OPOSTA ao bico."""
+        self.create_thruster_jet(
+            pos, angle + 180, color,
+            count=2, speed_range=(80, 140), size=2,
+            life_range=(0.25, 0.45), spread=20.0,
+        )
+
+    def create_rcs_puff(self, origin, jet_dir_deg: float, color,
+                        strength: str = "reverse"):
+        """
+        Thruster de manobra (RCS): jato curto e rápido, mais sutil que o motor.
+
+        strength="reverse" → RCS de freio/ré (médio, mais fraco que o motor).
+        strength="strafe"  → RCS lateral (o mais fraco de todos).
+        """
+        if strength == "strafe":
+            # O mais fraco: jato curtíssimo, pouca partícula, pequeno.
+            self.create_thruster_jet(
+                origin, jet_dir_deg, color,
+                count=1, speed_range=(40, 75), size=1,
+                life_range=(0.10, 0.18), spread=10.0,
+            )
+        else:  # "reverse" — médio
+            self.create_thruster_jet(
+                origin, jet_dir_deg, color,
+                count=2, speed_range=(55, 95), size=2,
+                life_range=(0.15, 0.28), spread=14.0,
+            )
 
     def _on_weapon_fired(self, data):
         pos = data.get("position", (0, 0))
