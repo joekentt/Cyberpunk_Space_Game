@@ -22,6 +22,10 @@ from typing import Tuple, List, Dict
 
 RGBA = Tuple[int, int, int, int]
 
+# Cor das luzes de navegação "quentes" (strobe âmbar), usada junto da cor
+# accent da facção. Dá o segundo tom emissivo pedido sem apagar a identidade.
+WARM_LIGHT: RGBA = (255, 190, 110, 255)
+
 
 # --------------------------------------------------------------------------
 # Perfis de silhueta por classe
@@ -74,6 +78,15 @@ SHIP_PROFILES: Dict[str, Dict] = {
             # Detalhes do "radiador" curto
             ((-0.05, 0.50), (-0.15, 0.50)),
             ((-0.05, -0.50), (-0.15, -0.50)),
+        ],
+        "nav_lights": [
+            (0.70, 0.07, "warm"),     # baliza de proa
+            (0.12, 0.43, "accent"),   # luz de cintura (boreste)
+            (-0.10, 0.47, "warm"),    # ponta do radiador
+            (-0.74, 0.11, "accent"),  # luz traseira
+        ],
+        "accent_stripe": [
+            [(0.55, 0.20), (0.10, 0.40), (-0.20, 0.42), (-0.55, 0.30)],
         ],
     },
 
@@ -142,6 +155,15 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((0.40, 0.48), (0.0, 0.48)),
             ((-0.30, 0.48), (-0.55, 0.48)),
         ],
+        "nav_lights": [
+            (0.95, 0.07, "warm"),     # base do canhão spinal
+            (0.18, 0.47, "accent"),   # torre do pod frontal
+            (-0.46, 0.49, "accent"),  # torre do pod traseiro
+            (-0.84, 0.15, "warm"),    # baia de motores
+        ],
+        "accent_stripe": [
+            [(0.55, 0.16), (-0.05, 0.16), (-0.30, 0.16), (-0.62, 0.16)],
+        ],
     },
 
     "albatross_explorer": {
@@ -195,6 +217,15 @@ SHIP_PROFILES: Dict[str, Dict] = {
             # Linha frontal do array de sensores
             ((0.78, 0.16), (0.78, -0.16)),
         ],
+        "nav_lights": [
+            (0.95, 0.05, "warm"),     # ponta do array de sensores
+            (0.35, 0.46, "accent"),   # antena do painel 1
+            (-0.40, 0.46, "accent"),  # antena do painel 2
+            (-0.85, 0.10, "warm"),    # motor único
+        ],
+        "accent_stripe": [
+            [(0.78, 0.10), (0.10, 0.13), (-0.65, 0.13)],
+        ],
     },
 
     "mule_trader": {
@@ -236,6 +267,15 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((-0.20, 0.50), (-0.20, -0.50)),
             ((0.65, 0.0), (-0.75, 0.0)),         # quilha
         ],
+        "nav_lights": [
+            (0.70, 0.10, "warm"),     # proa
+            (0.20, 0.47, "accent"),   # topo do contêiner (frente)
+            (-0.20, 0.47, "accent"),  # topo do contêiner (traseira)
+            (-0.80, 0.13, "warm"),    # baia de motores
+        ],
+        "accent_stripe": [
+            [(0.50, 0.45), (0.20, 0.47), (-0.20, 0.47), (-0.55, 0.43)],
+        ],
     },
 
     # ----- Perfis fallback por categoria de tamanho -----
@@ -265,6 +305,14 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((0.50, 0.10), (0.10, 0.22)),
             ((0.10, 0.22), (-0.05, 0.52)),    # nervura da asa
             ((-0.30, 0.36), (-0.50, 0.20)),
+        ],
+        "nav_lights": [
+            (0.60, 0.06, "warm"),
+            (-0.05, 0.52, "accent"),   # ponta da asa em diamante
+            (-0.55, 0.13, "warm"),
+        ],
+        "accent_stripe": [
+            [(0.45, 0.12), (0.10, 0.20), (-0.05, 0.50)],
         ],
     },
 
@@ -299,6 +347,15 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((0.40, 0.20), (-0.25, 0.42)),   # diagonal da asa
             ((0.0, 0.0),  (-0.70, 0.0)),     # quilha central
             ((-0.25, 0.42), (-0.25, -0.42)), # mamparo transversal
+        ],
+        "nav_lights": [
+            (0.95, 0.05, "warm"),
+            (0.20, 0.36, "accent"),
+            (-0.45, 0.40, "accent"),
+            (-0.80, 0.11, "warm"),
+        ],
+        "accent_stripe": [
+            [(0.70, 0.08), (0.0, 0.0), (-0.65, 0.0)],
         ],
     },
 
@@ -352,6 +409,16 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((-0.20, 0.50), (-0.20, -0.50)), # mamparo 3
             ((-0.55, 0.50), (-0.55, -0.50)), # mamparo 4
             ((-0.85, 0.30), (-0.85, -0.30)), # parede da bateria de motores
+        ],
+        "nav_lights": [
+            (0.92, 0.06, "warm"),     # ponte de comando
+            (0.55, 0.48, "accent"),   # bloco de carga 1
+            (-0.20, 0.48, "accent"),  # bloco de carga 2
+            (-0.55, 0.48, "accent"),
+            (-0.92, 0.13, "warm"),    # bateria de motores
+        ],
+        "accent_stripe": [
+            [(0.70, 0.46), (0.20, 0.46), (-0.20, 0.46), (-0.55, 0.46)],
         ],
     },
 }
@@ -452,14 +519,16 @@ class SpriteGenerator:
         inner_full = _mirror_profile(inner_outline)
         inner_px = _profile_to_pixels(inner_full, size, profile["fill_ratio"])
 
-        # ---- Camada 1: sombra (offset diagonal) ----
-        shadow_px = [(x + 2, y + 2) for x, y in outline_px]
-        draw.polygon(shadow_px, fill=(0, 0, 0, 90))
+        # ---- Camada 1: sombra projetada (offset diagonal, leve elevação) ----
+        shadow_px = [(x + 1, y + 2) for x, y in outline_px]
+        draw.polygon(shadow_px, fill=(0, 0, 0, 80))
 
-        # ---- Camada 2: casco escuro (silhueta base) ----
-        draw.polygon(outline_px, fill=palette["primary_dark"])
+        # ---- Camada 2: casco escuro (base) — deslocado pra baixo/direita,
+        #      formando uma borda inferior mais escura (volume) ----
+        base_px = [(x + 1, y + 2) for x, y in outline_px]
+        draw.polygon(base_px, fill=palette["primary_dark"])
 
-        # ---- Camada 3: casco principal (deslocado 1px pra cima = pseudo-3D) ----
+        # ---- Camada 3: casco principal (deslocado pra cima = pseudo-3D) ----
         hull_px = [(x, y - 1) for x, y in outline_px]
         draw.polygon(hull_px, fill=palette["primary"])
 
@@ -470,10 +539,25 @@ class SpriteGenerator:
         # inferior com a cor primary de volta:
         SpriteGenerator._fill_lower_half(draw, inner_px, palette["primary"], size)
 
-        # ---- Camada 5: linhas de painel (dithering em segmentos) ----
+        # ---- Camada 4b: sheen superior mais marcado (núcleo claro no topo) ----
+        sheen_outline = SpriteGenerator._scale_profile(wobble, 0.50)
+        sheen_full = _mirror_profile(sheen_outline)
+        sheen_px = [(x, y - 1) for x, y in
+                    _profile_to_pixels(sheen_full, size, profile["fill_ratio"])]
+        draw.polygon(sheen_px, fill=_lighten(palette["primary_light"], 0.20))
+        SpriteGenerator._fill_lower_half(draw, sheen_px, palette["primary"], size)
+
+        # ---- Camada 5: linhas de painel (com bisel claro para profundidade) ----
+        hl = _lighten(palette["primary"], 0.30)
         SpriteGenerator._draw_panel_lines(
             draw, profile["panel_lines"], size, profile["fill_ratio"],
-            palette["primary_dark"], rng
+            palette["primary_dark"], (hl[0], hl[1], hl[2], 90), rng
+        )
+
+        # ---- Camada 5b: faixa emissiva fina ("tron line") ----
+        SpriteGenerator._draw_accent_stripe(
+            draw, profile.get("accent_stripe", []), size,
+            profile["fill_ratio"], palette["accent"]
         )
 
         # ---- Camada 6: hardpoints (pontos escuros nas asas) ----
@@ -488,14 +572,20 @@ class SpriteGenerator:
             palette["accent"], palette["glow"]
         )
 
-        # ---- Camada 8: motores (glow forte na traseira) ----
+        # ---- Camada 8: motores (bocal + glow forte na traseira) ----
         SpriteGenerator._draw_engines(
             draw, profile["engines"], size, profile["fill_ratio"],
-            palette["accent"], palette["glow"]
+            palette["accent"], palette["glow"], palette["primary_dark"]
         )
 
         # ---- Camada 9: borda escura nítida (contorno final) ----
         SpriteGenerator._draw_outline(draw, outline_px, _darken(palette["primary_dark"], 0.3))
+
+        # ---- Camada 10: luzes de navegação (pontos emissivos no casco) ----
+        SpriteGenerator._draw_nav_lights(
+            draw, profile.get("nav_lights", []), size,
+            profile["fill_ratio"], palette["accent"], WARM_LIGHT
+        )
 
         return img
 
@@ -580,19 +670,28 @@ class SpriteGenerator:
                           size: int,
                           fill_ratio: float,
                           color: RGBA,
+                          hi_color: RGBA,
                           rng: random.Random):
-        """Desenha linhas de painel sutis no casco (ambos hemisférios)."""
+        """
+        Desenha linhas de painel no casco (ambos hemisférios). Cada linha leva
+        um bisel: o sulco escuro (`color`) e, 1px abaixo, um realce claro
+        translúcido (`hi_color`) — dá a leitura de "chapa montada" com volume.
+        """
+        def _seg(pa, pb):
+            # Realce claro 1px abaixo (parece luz batendo na quina da chapa)
+            draw.line([(pa[0], pa[1] + 1), (pb[0], pb[1] + 1)], fill=hi_color, width=1)
+            # Sulco escuro por cima
+            draw.line([pa, pb], fill=color, width=1)
+
         for (a, b) in lines_norm:
             pa = _profile_to_pixels([a], size, fill_ratio)[0]
             pb = _profile_to_pixels([b], size, fill_ratio)[0]
-            draw.line([pa, pb], fill=color, width=1)
+            _seg(pa, pb)
             # Espelhar para o hemisfério oposto
-            a_mirror = (a[0], -a[1])
-            b_mirror = (b[0], -b[1])
             if abs(a[1]) > 0.001 or abs(b[1]) > 0.001:
-                pa2 = _profile_to_pixels([a_mirror], size, fill_ratio)[0]
-                pb2 = _profile_to_pixels([b_mirror], size, fill_ratio)[0]
-                draw.line([pa2, pb2], fill=color, width=1)
+                pa2 = _profile_to_pixels([(a[0], -a[1])], size, fill_ratio)[0]
+                pb2 = _profile_to_pixels([(b[0], -b[1])], size, fill_ratio)[0]
+                _seg(pa2, pb2)
 
     @staticmethod
     def _draw_hardpoints(draw: ImageDraw.ImageDraw,
@@ -647,31 +746,115 @@ class SpriteGenerator:
                       size: int,
                       fill_ratio: float,
                       accent: RGBA,
-                      glow: RGBA):
-        """Desenha os motores como círculos com halo emissivo na traseira."""
+                      glow: RGBA,
+                      primary_dark: RGBA):
+        """
+        Desenha cada motor com PRESENÇA: um bocal (housing escuro em trapézio,
+        abrindo para a traseira -X) e um glow em camadas com núcleo quente
+        quase branco e halo na cor accent.
+
+        A nave aponta para +X, então a traseira/escape fica em -X (esquerda).
+        O glow é puxado levemente para fora (-X) para sentar na borda traseira
+        real do casco, e seu raio é limitado para nunca cortar no canvas.
+        """
         center = size / 2
         scale = (size / 2) * fill_ratio
+        nozzle_dark = _darken(primary_dark, 0.35)
+
         for (ex, ey, er) in engines:
             px = center + ex * scale
             py = center - ey * scale
-            rp = max(1, er * scale)
-            # Halo externo (mais transparente)
-            draw.ellipse(
-                [px - rp - 2, py - rp - 2, px + rp + 2, py + rp + 2],
-                fill=glow,
-            )
-            # Halo médio
-            draw.ellipse(
-                [px - rp - 1, py - rp - 1, px + rp + 1, py + rp + 1],
-                fill=(glow[0], glow[1], glow[2], min(255, glow[3] + 60)),
-            )
-            # Núcleo
-            draw.ellipse(
-                [px - rp, py - rp, px + rp, py + rp],
-                fill=accent,
-            )
-            # Centro branco
-            draw.ellipse(
-                [px - rp / 2, py - rp / 2, px + rp / 2, py + rp / 2],
-                fill=_lighten(accent, 0.7),
-            )
+            # Motor maior e mais presente que antes (~+40%).
+            rp = max(2.0, er * scale * 1.4)
+
+            # ---- Bocal (housing): trapézio escuro apoiado no casco, abrindo
+            #      para a traseira. Fica dentro do casco (não corta). ----
+            depth = rp * 1.4          # quanto o bocal entra no corpo (+X)
+            outer_h = rp * 1.15       # meia-altura na boca (traseira)
+            inner_h = rp * 0.62       # meia-altura no fundo (dentro do corpo)
+            nozzle = [
+                (px, py - outer_h),               # boca superior (na borda)
+                (px + depth, py - inner_h),        # fundo superior (no corpo)
+                (px + depth, py + inner_h),        # fundo inferior
+                (px, py + outer_h),               # boca inferior
+            ]
+            draw.polygon(nozzle, fill=nozzle_dark)
+
+            # ---- Glow centrado na borda traseira; raio ESTRITAMENTE limitado
+            #      ao canvas (a faixa faint nunca toca o limite). ----
+            gx = px
+            edge_room = min(gx, py, size - gx, size - py) - 1.0
+            r_out = max(1.5, min(rp * 1.9, edge_room))
+            k = r_out / (rp * 1.9)    # fator de compressão se faltar espaço
+            r_core = rp * k
+            r_hot = r_core * 0.55
+
+            ga = glow[:3]
+            # Halo externo (suave)
+            draw.ellipse([gx - r_out, py - r_out, gx + r_out, py + r_out],
+                         fill=(ga[0], ga[1], ga[2], max(30, glow[3] - 40)))
+            # Halo médio (mais denso)
+            r_mid = r_out * 0.7
+            draw.ellipse([gx - r_mid, py - r_mid, gx + r_mid, py + r_mid],
+                         fill=(ga[0], ga[1], ga[2], min(255, glow[3] + 70)))
+            # Núcleo na cor accent
+            draw.ellipse([gx - r_core, py - r_core, gx + r_core, py + r_core],
+                         fill=accent)
+            # Centro quente quase branco
+            draw.ellipse([gx - r_hot, py - r_hot, gx + r_hot, py + r_hot],
+                         fill=_lighten(accent, 0.85))
+
+    @staticmethod
+    def _draw_accent_stripe(draw: ImageDraw.ImageDraw,
+                            stripes: List[List[Tuple[float, float]]],
+                            size: int,
+                            fill_ratio: float,
+                            accent: RGBA):
+        """
+        Faixa emissiva fina ("tron line") acompanhando o corpo. Desenhada com
+        um glow translúcido largo + um núcleo fino claro. Espelhada para o
+        hemisfério oposto quando sai do eixo central.
+        """
+        a = accent[:3]
+        for poly in stripes:
+            if len(poly) < 2:
+                continue
+            pts = [_profile_to_pixels([p], size, fill_ratio)[0] for p in poly]
+            draw.line(pts, fill=(a[0], a[1], a[2], 70), width=3, joint="curve")
+            draw.line(pts, fill=(_lighten(accent, 0.45)[:3] + (180,)), width=1)
+            # Espelho
+            if any(abs(y) > 0.001 for _, y in poly):
+                mpts = [_profile_to_pixels([(x, -y)], size, fill_ratio)[0]
+                        for x, y in poly]
+                draw.line(mpts, fill=(a[0], a[1], a[2], 70), width=3, joint="curve")
+                draw.line(mpts, fill=(_lighten(accent, 0.45)[:3] + (180,)), width=1)
+
+    @staticmethod
+    def _draw_nav_lights(draw: ImageDraw.ImageDraw,
+                         lights: List[Tuple[float, float, str]],
+                         size: int,
+                         fill_ratio: float,
+                         accent: RGBA,
+                         warm: RGBA):
+        """
+        Luzes de navegação: pequenos pontos emissivos espalhados pelo casco,
+        na cor accent da facção e numa cor "quente" secundária. Cada luz tem
+        um micro-halo + núcleo claro. Espelhadas para os dois hemisférios.
+        """
+        center = size / 2
+        scale = (size / 2) * fill_ratio
+        for (nx, ny, kind) in lights:
+            col = warm if kind == "warm" else accent
+            positions = [(nx, ny)]
+            if abs(ny) > 0.001:
+                positions.append((nx, -ny))
+            for (sx, sy) in positions:
+                px = center + sx * scale
+                py = center - sy * scale
+                # Micro-halo
+                draw.ellipse([px - 1.8, py - 1.8, px + 1.8, py + 1.8],
+                             fill=(col[0], col[1], col[2], 80))
+                # Núcleo
+                draw.ellipse([px - 0.9, py - 0.9, px + 0.9, py + 0.9], fill=col)
+                # Brilho central
+                draw.point((int(round(px)), int(round(py))), fill=_lighten(col, 0.6))
