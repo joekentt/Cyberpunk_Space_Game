@@ -29,6 +29,7 @@ from systems.energy_manager import EnergyManager
 from systems.combat_manager import CombatManager, DEFAULT_WEAPONS
 from systems.station_manager import StationManager
 from systems.loot_manager import LootManager
+from systems.mission_manager import MissionManager
 from visual_engine.procedural_assembler import ProceduralShipAssembler
 from visual_engine.station_generator import StationGenerator
 from visual_engine.vfx_generator import VFXGenerator, render_projectile
@@ -72,6 +73,14 @@ class SpaceRPGVisual:
         self.combat_mgr = CombatManager(self.universe)
         self.station_mgr = StationManager(self.universe)
         self.loot_mgr = LootManager()
+
+        # Missões
+        self.mission_mgr = MissionManager()
+        missions_path = os.path.join(os.path.dirname(__file__), "data", "mission_templates.json")
+        with open(missions_path, "r", encoding="utf-8") as f:
+            all_templates = json.load(f)["templates"]
+        bounty_templates = [t for t in all_templates if t["type"] == "BOUNTY"]
+        self.mission_mgr.set_templates(bounty_templates)
 
         # Textos flutuantes de recompensa: [{text, world_pos, timer, color}, ...]
         self._floating_texts = []
@@ -119,6 +128,9 @@ class SpaceRPGVisual:
         bus.subscribe("UNDOCKED", self._on_undocked)
         bus.subscribe("SHIP_PURCHASED", self._on_ship_purchased)
         bus.subscribe("SHIP_DESTROYED", self._on_ship_destroyed)
+        bus.subscribe("MISSION_ACCEPT_REQUEST", self._on_mission_accept_request)
+        bus.subscribe("ADD_CREDITS", self._on_add_credits)
+        bus.subscribe("MISSION_COMPLETED", self._on_mission_completed)
 
     # -------------------------------------------------------------- setup
 
@@ -337,9 +349,16 @@ class SpaceRPGVisual:
         self.game_state = "docked"
         player = self.universe.entities.get(self.player_id)
         if player:
-            # Parar a nave ao acoplar
             player.velocity = [0.0, 0.0]
-        self.station_ui.open(station, player)
+
+        # Gera 2 missões novas para esta estação (substitui as anteriores)
+        self.mission_mgr.available_missions.clear()
+        for _ in range(2):
+            self.mission_mgr.generate_mission(
+                faction=station.faction, difficulty=1.0
+            )
+        available = list(self.mission_mgr.available_missions.values())
+        self.station_ui.open(station, player, available_missions=available)
 
     def _on_undocked(self, data):
         self.game_state = "playing"
@@ -373,13 +392,14 @@ class SpaceRPGVisual:
     def _on_ship_destroyed(self, data):
         ship_id = data["ship_id"]
         attacker_id = data.get("attacker_id")
+        destroyed_faction = data.get("faction", "")
 
         if ship_id == self.player_id:
             self.game_state = "dying"
             self.death_timer = 3.0
             return
 
-        # Recompensa apenas se o player foi o autor do abate
+        # Recompensa e progresso de missão apenas se o player foi o autor do abate
         if attacker_id != self.player_id:
             return
 
@@ -394,6 +414,35 @@ class SpaceRPGVisual:
                 "timer": 2.2,
                 "color": (255, 215, 0),
             })
+
+        # Registra o kill nas missões ativas (bounty por facção)
+        if destroyed_faction:
+            self.mission_mgr.record_kill(destroyed_faction)
+
+    def _on_mission_accept_request(self, data):
+        mission_id = data.get("mission_id")
+        if mission_id:
+            self.mission_mgr.accept_mission(mission_id)
+
+    def _on_add_credits(self, amount):
+        player = self.universe.entities.get(self.player_id)
+        if player:
+            player.credits += amount
+            self._floating_texts.append({
+                "text": f"+{amount} cr",
+                "pos": list(player.position),
+                "timer": 2.2,
+                "color": (120, 255, 120),
+            })
+
+    def _on_mission_completed(self, data):
+        self._floating_texts.append({
+            "text": f"MISSÃO COMPLETA! +{data.get('reward_credits', 0)} cr",
+            "pos": list(self.universe.entities[self.player_id].position)
+                   if self.player_id in self.universe.entities else [0, 0],
+            "timer": 3.5,
+            "color": (80, 255, 180),
+        })
 
     # -------------------------------------------------------------- respawn
 
@@ -636,6 +685,24 @@ class SpaceRPGVisual:
             self.label_font.render(f"NAVE: {player.name}", True, (180, 200, 220)),
             (bar_x, bar_y - 64)
         )
+
+        # Missões ativas
+        hud_y = bar_y - 82
+        for mission in self.mission_mgr.active_missions.values():
+            kill_obj = next(
+                (o for o in mission.objectives if o.get("type") == "KILL"), None
+            )
+            if kill_obj:
+                prog = mission.kill_progress
+                req = kill_obj.get("count", 1)
+                faction = kill_obj.get("target_faction", "?")
+                text = f"BOUNTY: {faction} {prog}/{req}"
+                color = (80, 255, 160) if prog >= req else (255, 220, 80)
+                self.screen.blit(
+                    self.label_font.render(text, True, color),
+                    (bar_x, hud_y)
+                )
+                hud_y -= 14
 
     def _draw_docking_prompt(self):
         if self.station_mgr.docking_state == "approach":
