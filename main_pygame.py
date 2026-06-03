@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.event_bus import bus
 from core.input_config import InputConfig
+from core.save_manager import SaveManager
 from systems.universe_manager import UniverseManager
 from systems.player_manager import PlayerManager
 from systems.npc_manager import NPCManager, NPCBehavior
@@ -30,6 +31,8 @@ from systems.combat_manager import CombatManager, DEFAULT_WEAPONS
 from systems.station_manager import StationManager
 from systems.loot_manager import LootManager
 from systems.mission_manager import MissionManager
+from systems.faction_manager import FactionManager
+from systems.game_state_serializer import build_save_payload, apply_save_payload
 from visual_engine.procedural_assembler import ProceduralShipAssembler
 from visual_engine.station_generator import StationGenerator
 from visual_engine.vfx_generator import VFXGenerator, render_projectile
@@ -46,6 +49,7 @@ WIDTH, HEIGHT = 960, 640
 BG_COLOR = (8, 8, 18)
 STARTING_CREDITS = 50000
 DEATH_PENALTY_PCT = 0.10   # perde 10% dos créditos ao morrer
+SAVE_SLOT = 1              # Ciclo C: slot único. Multi-slot é do Ciclo D.
 
 
 class SpaceRPGVisual:
@@ -81,6 +85,15 @@ class SpaceRPGVisual:
             all_templates = json.load(f)["templates"]
         bounty_templates = [t for t in all_templates if t["type"] == "BOUNTY"]
         self.mission_mgr.set_templates(bounty_templates)
+
+        # Reputação de facções (necessária para persistir no save)
+        self.faction_mgr = FactionManager()
+        factions_path = os.path.join(os.path.dirname(__file__), "data", "factions.json")
+        with open(factions_path, "r", encoding="utf-8") as f:
+            self.faction_mgr.setup_factions(json.load(f)["factions"])
+
+        # Persistência (save/load)
+        self.save_mgr = SaveManager(save_dir=os.path.join(os.path.dirname(__file__), "saves"))
 
         # Textos flutuantes de recompensa: [{text, world_pos, timer, color}, ...]
         self._floating_texts = []
@@ -244,6 +257,7 @@ class SpaceRPGVisual:
         """Opções do menu de pausa: (rótulo, chave de ação)."""
         return [
             ("CONTINUAR", "resume"),
+            ("SALVAR JOGO", "save"),
             ("CONFIGURAR TECLAS", "keybinds"),
             ("SAIR DO JOGO", "quit"),
         ]
@@ -251,11 +265,83 @@ class SpaceRPGVisual:
     def _activate_pause_option(self, key: str):
         if key == "resume":
             self.game_state = "playing"
+        elif key == "save":
+            self._save_game()
+            self.game_state = "playing"
         elif key == "keybinds":
             self.keybinds_ui.open()
             self.game_state = "keybinds"
         elif key == "quit":
             self.running = False
+
+    # -------------------------------------------------------------- save / load
+
+    def _save_game(self):
+        """Monta o payload e grava no slot único (Ciclo C)."""
+        player = self.universe.entities.get(self.player_id)
+        if not player:
+            return
+        payload = build_save_payload(
+            player_ship=player,
+            pips=self.player_mgr.pips,
+            mission_mgr=self.mission_mgr,
+            faction_mgr=self.faction_mgr,
+            last_docked_station_id=self.station_mgr.last_docked_station_id,
+            camera_offset=list(self.camera.offset),
+        )
+        self.save_mgr.save_game(SAVE_SLOT, payload)
+        self._floating_texts.append({
+            "text": "JOGO SALVO",
+            "pos": list(player.position),
+            "timer": 2.2,
+            "color": (120, 220, 255),
+        })
+
+    def load_game(self) -> bool:
+        """
+        Carrega o save do slot único e aplica ao estado atual.
+
+        Função pública pronta para o Ciclo D (menu principal) consumir.
+        Neste ciclo é disparada por uma tecla de debug (F9). Retorna True
+        se carregou com sucesso.
+        """
+        try:
+            payload = self.save_mgr.load_game(SAVE_SLOT)
+        except FileNotFoundError:
+            self._floating_texts.append({
+                "text": "NENHUM SAVE ENCONTRADO",
+                "pos": list(self.universe.entities[self.player_id].position)
+                       if self.player_id in self.universe.entities else [0, 0],
+                "timer": 2.2,
+                "color": (255, 120, 120),
+            })
+            return False
+
+        self.player_id = apply_save_payload(
+            payload=payload,
+            universe=self.universe,
+            player_mgr=self.player_mgr,
+            energy_mgr=self.energy_mgr,
+            mission_mgr=self.mission_mgr,
+            faction_mgr=self.faction_mgr,
+            station_mgr=self.station_mgr,
+            old_player_id=self.player_id,
+        )
+        self.station_ui.player = self.universe.entities[self.player_id]
+        self.game_state = "playing"
+
+        offset = payload.get("camera_offset")
+        if offset:
+            self.camera.offset = list(offset)
+
+        player = self.universe.entities[self.player_id]
+        self._floating_texts.append({
+            "text": "JOGO CARREGADO",
+            "pos": list(player.position),
+            "timer": 2.2,
+            "color": (120, 255, 180),
+        })
+        return True
 
     # -------------------------------------------------------------- input
 
@@ -304,6 +390,11 @@ class SpaceRPGVisual:
                 continue
 
             if self.game_state != "playing":
+                continue
+
+            # Tecla de debug para carregar o save (Ciclo D dará UI dedicada)
+            if ev.key == pygame.K_F9:
+                self.load_game()
                 continue
 
             if ev.key == self._key("dock_toggle"):
@@ -804,7 +895,7 @@ class SpaceRPGVisual:
             "A/D = girar    Q/E = strafe",
             "ESPAÇO = disparar    F = acoplar",
             "1/2/3 = realocar PIP",
-            "ESC = pausar",
+            "ESC = pausar (salvar)    F9 = carregar",
         ]
         y = HEIGHT - 80
         for line in lines:

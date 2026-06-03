@@ -110,6 +110,7 @@ Cada teste é executável diretamente sem nenhum framework. A partir da raiz do 
 python tests/test_docking.py        # ciclo de docking, mercado, respawn
 python tests/test_movement.py       # strafe, ré, hierarquia de empuxo
 python tests/test_input_config.py   # keybindings: padrões, persistência, conflitos
+python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
 
 # Outros testes:
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
@@ -150,16 +151,17 @@ Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 - ✅ EnergyManager (W-S-E), NPCManager (FSM chase/escort/flee/attack)
 - ✅ CombatManager: projéteis, hit detection, dano a escudos/casco
 - ✅ StationManager: docking, mercado de naves, reparo, respawn
-- ✅ Menu de pausa com CONTINUAR / CONFIGURAR TECLAS / SAIR DO JOGO
+- ✅ Menu de pausa com CONTINUAR / SALVAR JOGO / CONFIGURAR TECLAS / SAIR DO JOGO
 - ✅ Keybindings configuráveis pelo jogador com persistência em disco
+- ✅ Save/load completo: nave (modelo, HP, escudo, pos, rotação), créditos,
+  missões ativas/concluídas e reputação de facção (slot único — ver ADR 003)
 - ✅ Geração procedural de universo e sprites (3 classes × 5 facções)
 - ✅ Versão Pygame jogável: movimento vetorial, parallax, VFX, HUD, câmera
-- ⚠️ `tests/test_factions.py` desatualizado (API antiga do FactionManager)
+- ⚠️ `tests/test_factions.py` e `tests/test_universe_ai.py` desatualizados (APIs antigas)
 
 ## Próximos passos sugeridos
 
 1. Visualização de dano progressivo nos sprites (DamageStateRenderer)
 2. Sons (módulo `audio_engine`)
-3. Menu principal e tela de criação de piloto
-4. Saves funcionais com persistência completa de estado de mundo
-5. Mapa estelar / sistema de viagem entre setores
+3. Menu principal e tela de criação de piloto + múltiplos slots de save (Ciclo D)
+4. Mapa estelar / sistema de viagem entre setores
