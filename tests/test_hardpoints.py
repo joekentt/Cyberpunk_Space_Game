@@ -13,6 +13,7 @@ import json
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.balance import balance
 from systems.universe_manager import UniverseManager
 from systems.combat_manager import CombatManager, DEFAULT_WEAPONS
 from entities.ship import Ship
@@ -26,10 +27,12 @@ def load_catalog():
 
 
 def expected_firepower(hp):
-    fp = (hp.get("weapon_small", 0) * 1
-          + hp.get("weapon_medium", 0) * 3
-          + hp.get("weapon_large", 0) * 9)
-    return float(fp) if fp > 0 else 1.0
+    """Réplica independente da fórmula (curva achatada, data-driven)."""
+    fp = balance.firepower
+    raw = (hp.get("weapon_small", 0) * fp["weight_small"]
+           + hp.get("weapon_medium", 0) * fp["weight_medium"]
+           + hp.get("weapon_large", 0) * fp["weight_large"])
+    return float(fp["fallback"]) if raw <= 0 else float(raw) ** float(fp["exponent"])
 
 
 def main():
@@ -40,23 +43,31 @@ def main():
     catalog = load_catalog()
 
     # ------------------------------------------------------------------
-    # 1) firepower derivado corretamente do ships.json
+    # 1) firepower derivado corretamente do ships.json (curva ACHATADA)
     # ------------------------------------------------------------------
     print("\n[1] firepower derivado do ships.json")
+    # Valores da curva data-driven (pesos 1/2/4, expoente 0.6).
     expected = {
-        "starter_skiff": 2.0,       # 2S
-        "wasp_combat": 7.0,         # 4S + 1M
-        "albatross_explorer": 1.0,  # 1S
-        "mule_trader": 4.0,         # 1S + 1M
+        "starter_skiff": 2 ** 0.6,         # 2S  → ~1.52
+        "wasp_combat": 6 ** 0.6,           # 4S+1M (raw 6) → ~2.93
+        "albatross_explorer": 1.0,         # 1S  → 1.0
+        "mule_trader": 3 ** 0.6,           # 1S+1M (raw 3) → ~1.93
+        "stingray_raider": 5 ** 0.6,       # 3S+1M (raw 5) → ~2.63
+        "terraformador_ligeiro": 1.0,      # 1S  → 1.0
     }
     for ship_id, exp in expected.items():
         ship = Ship.from_dict(catalog[ship_id])
         got = CombatManager.hardpoint_firepower(ship)
-        # confere também contra a fórmula aplicada aos dados crus
         raw = expected_firepower(catalog[ship_id]["hardpoints"])
-        assert got == exp == raw, \
-            f"{ship_id}: firepower {got} (esperado {exp}, fórmula {raw})"
-        print(f"  {catalog[ship_id]['name']:12s} → x{got:g}  ✓")
+        assert abs(got - exp) < 1e-9, f"{ship_id}: firepower {got} (esperado {exp})"
+        assert abs(got - raw) < 1e-9, f"{ship_id}: divergiu da fórmula crua ({raw})"
+        print(f"  {catalog[ship_id]['name']:16s} → x{got:.2f}  ✓")
+
+    # Curva achatada: a melhor nave de combate Tier 1 (Wasp) deve ter entre
+    # 1.8x e 2.5x a capacidade ofensiva da Skiff (não mais 3.5x).
+    ratio = expected["wasp_combat"] / expected["starter_skiff"]
+    print(f"\n  Razão Wasp/Skiff = {ratio:.2f}x (alvo 1.8–2.5)")
+    assert 1.8 <= ratio <= 2.5, f"razão Wasp/Skiff fora do alvo: {ratio:.2f}"
 
     # ------------------------------------------------------------------
     # 2) Wasp causa mais dano por salva que a Skiff
@@ -78,12 +89,12 @@ def main():
 
     skiff_dmg = salvo_damage("starter_skiff")
     wasp_dmg = salvo_damage("wasp_combat")
-    print(f"  Skiff: {skiff_dmg:g} de dano/tiro (base {base:g} x2)")
-    print(f"  Wasp:  {wasp_dmg:g} de dano/tiro (base {base:g} x7)")
-    assert skiff_dmg == base * 2.0, f"Skiff deveria ser {base*2}, foi {skiff_dmg}"
-    assert wasp_dmg == base * 7.0, f"Wasp deveria ser {base*7}, foi {wasp_dmg}"
+    print(f"  Skiff: {skiff_dmg:.1f} de dano/tiro (base {base:g} x{expected['starter_skiff']:.2f})")
+    print(f"  Wasp:  {wasp_dmg:.1f} de dano/tiro (base {base:g} x{expected['wasp_combat']:.2f})")
+    assert abs(skiff_dmg - base * expected["starter_skiff"]) < 1e-6
+    assert abs(wasp_dmg - base * expected["wasp_combat"]) < 1e-6
     assert wasp_dmg > skiff_dmg, "Wasp deveria causar mais dano que a Skiff"
-    print(f"  Wasp ({wasp_dmg:g}) > Skiff ({skiff_dmg:g})  ✓")
+    print(f"  Wasp ({wasp_dmg:.1f}) > Skiff ({skiff_dmg:.1f})  ✓")
 
     # ------------------------------------------------------------------
     # 3) Fallback: nave sem hardpoint de arma não crasha e usa x1

@@ -14,6 +14,7 @@ Eventos emitidos via EventBus:
 import math
 from typing import Dict, List
 from core.event_bus import bus
+from core.balance import balance
 from entities.projectile import Projectile
 
 
@@ -78,29 +79,42 @@ class CombatManager:
     # ----- API pública --------------------------------------------------
 
     @staticmethod
-    def hardpoint_firepower(shooter) -> float:
+    def firepower_from_hardpoints(hp: dict) -> float:
         """
-        Deriva o multiplicador de dano dos hardpoints de arma da nave.
+        Multiplicador de dano por disparo derivado de um dict de hardpoints.
 
-        Fórmula (peso por porte, cada porte ~3x o anterior):
-            firepower = weapon_small*1 + weapon_medium*3 + weapon_large*9
+        Fórmula data-driven (pesos e expoente em data/balance.json):
+            raw       = small*w_s + medium*w_m + large*w_l
+            firepower = raw ** exponent          (expoente < 1 ACHATA a curva)
 
-        Naves sem nenhum hardpoint de arma usam fallback 1.0 (equivalente a
-        uma arma pequena), garantindo que o dano nunca zere nem crashe.
+        O expoente comprime a progressão para que comprar uma nave melhor seja
+        perceptível mas não esmagador (ver ADR 004). Sem hardpoint de arma →
+        `fallback` (1.0), garantindo que o dano nunca zere nem crashe.
 
-        Exemplos (ships.json):
-            Skiff (2S)        → 2
-            Wasp  (4S + 1M)   → 7
-            Mule  (1S + 1M)   → 4
-            Albatross (1S)    → 1
+        Exemplos (pesos 1/2/4, expoente 0.6):
+            Skiff (2S, raw 2)        → x1.52
+            Wasp  (4S + 1M, raw 6)   → x2.93   (~1.9× a Skiff)
+            Mule  (1S + 1M, raw 3)   → x1.93
+            Albatross (1S, raw 1)    → x1.0
+            Stingray (3S + 1M, raw 5)→ x2.63
         """
-        hp = getattr(shooter, "hardpoints", None) or {}
-        firepower = (
-            hp.get("weapon_small", 0) * 1
-            + hp.get("weapon_medium", 0) * 3
-            + hp.get("weapon_large", 0) * 9
+        hp = hp or {}
+        fp = balance.firepower
+        raw = (
+            hp.get("weapon_small", 0) * fp["weight_small"]
+            + hp.get("weapon_medium", 0) * fp["weight_medium"]
+            + hp.get("weapon_large", 0) * fp["weight_large"]
         )
-        return float(firepower) if firepower > 0 else 1.0
+        if raw <= 0:
+            return float(fp["fallback"])
+        return float(raw) ** float(fp["exponent"])
+
+    @staticmethod
+    def hardpoint_firepower(shooter) -> float:
+        """Multiplicador de dano da nave `shooter` (lê seus hardpoints)."""
+        return CombatManager.firepower_from_hardpoints(
+            getattr(shooter, "hardpoints", None) or {}
+        )
 
     def fire(self, shooter, weapon_id: str = "kinetic_small") -> bool:
         """Tenta disparar uma arma. Retorna True se conseguiu (cooldown OK)."""

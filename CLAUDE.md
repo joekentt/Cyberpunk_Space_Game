@@ -66,26 +66,48 @@ As naves declaram `hardpoints` no `data/ships.json`
 `Ship` (campo `hardpoints`), via `Ship.from_dict` e `UniverseManager.spawn_ship`.
 
 O `CombatManager` deriva o **multiplicador de dano por disparo** dos hardpoints
-de arma (`CombatManager.hardpoint_firepower`):
+de arma (`CombatManager.firepower_from_hardpoints`). Os pesos e o expoente são
+**data-driven** (`data/balance.json` → seção `firepower`; ver ADR 004):
 
 ```
-firepower = weapon_small*1 + weapon_medium*3 + weapon_large*9   (fallback 1.0)
+raw       = weapon_small*1 + weapon_medium*2 + weapon_large*4
+firepower = raw ** 0.6                                   (fallback 1.0)
 ```
 
-Cada porte vale ~3× o anterior. `fire()` multiplica `proj.damage` por esse
+O expoente `0.6` **achata a curva** (Ciclo B): comprar uma nave melhor é
+perceptível mas não esmagador. `fire()` multiplica `proj.damage` por esse
 valor — vale para player **e** NPCs (ambos passam por `fire`). Naves sem
 hardpoint de arma usam `1.0` (nunca zera o dano nem crasha).
 
-| Nave | Hardpoints | firepower |
-|---|---|---|
-| Skiff | 2S | x2 |
-| Wasp | 4S + 1M | x7 |
-| Mule | 1S + 1M | x4 |
-| Albatross | 1S | x1 |
+| Nave | Hardpoints | raw | firepower |
+|---|---|---|---|
+| Skiff | 2S | 2 | x1.52 |
+| Wasp | 4S + 1M | 6 | x2.93 |
+| Stingray | 3S + 1M | 5 | x2.63 |
+| Mule | 1S + 1M | 3 | x1.93 |
+| Albatross | 1S | 1 | x1.00 |
+| Terraformador | 1S | 1 | x1.00 |
 
-Escopo deliberadamente simples (sem sistema de módulos — ver ADR 001): o
+A melhor nave de combate Tier 1 (Wasp) tem ~1.9× a ofensiva da Skiff (antes era
+3.5×). Escopo deliberadamente simples (sem sistema de módulos — ver ADR 001): o
 armamento é derivado dos hardpoints já declarados, não de Modules equipados.
-O painel do mercado (`StationUI`) mostra a linha "PODER DE FOGO".
+O painel do mercado (`StationUI`) mostra a linha "PODER DE FOGO" usando o mesmo
+helper (`CombatManager.firepower_from_hardpoints`) — fonte única da fórmula.
+
+### Balanceamento data-driven (`data/balance.json`)
+
+Números de combate ficam em `data/balance.json`, carregado por `core/balance.py`
+(singleton `balance`, **tolerante a falhas**: usa `DEFAULTS` se o arquivo faltar
+ou corromper, no espírito do `InputConfig`). Seções:
+
+- `firepower`: pesos por porte + `exponent` + `fallback`.
+- `ai`: `attack_range`, `detection_range`, `fire_chance_per_tick`,
+  `flee_shield_threshold` (=0 → piratas Tier 1 lutam até o fim),
+  `recover_shield_threshold`.
+- `shield`: `base_recharge` (recarga de escudo do player, escala com pips).
+
+Consumidores: `CombatManager` (firepower), `NPCManager` (IA), `EnergyManager`
+(recarga). Tuning de balanceamento não exige editar código.
 
 ---
 
@@ -101,8 +123,10 @@ python tests/test_docking.py
 python tests/test_movement.py
 python tests/test_input_config.py
 python tests/test_combat.py
+python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
 python tests/test_economy_loop.py
 python tests/test_hardpoints.py
+python tests/test_save_load.py
 ```
 
 Os testes em `tests/` que cobrem lógica pura (movimento, docking, input config)

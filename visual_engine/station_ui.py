@@ -16,6 +16,7 @@ import pygame
 import os
 import json
 from core.event_bus import bus
+from systems.combat_manager import CombatManager
 
 
 class StationUI:
@@ -402,11 +403,9 @@ class StationUI:
         if hp.get("utility", 0): hp_str_parts.append(f"{hp['utility']}U")
         hp_str = " + ".join(hp_str_parts) if hp_str_parts else "—"
 
-        # Poder de fogo derivado dos hardpoints de arma (mesma fórmula do
-        # CombatManager.hardpoint_firepower): small*1 + medium*3 + large*9.
-        firepower = (hp.get("weapon_small", 0) * 1
-                     + hp.get("weapon_medium", 0) * 3
-                     + hp.get("weapon_large", 0) * 9) or 1
+        # Poder de fogo derivado dos hardpoints de arma. Usa o MESMO helper do
+        # CombatManager (fonte única da fórmula) para nunca dessincronizar.
+        firepower = CombatManager.firepower_from_hardpoints(hp)
 
         rows = [
             ("CASCO", f"{stats.get('hull_hp', '—')} HP"),
@@ -415,7 +414,7 @@ class StationUI:
             ("MASSA", f"{stats.get('mass', '—')} t"),
             ("CARGA", f"{stats.get('cargo_capacity', '—')} m³"),
             ("HARDPOINTS", hp_str),
-            ("PODER DE FOGO", f"x{firepower} dano/tiro"),
+            ("PODER DE FOGO", f"x{firepower:.1f} dano/tiro"),
         ]
         for k, v in rows:
             l = self.font_small.render(k, True, (120, 140, 160))

@@ -1,0 +1,26 @@
+{
+    "_comment": "Números de balanceamento de combate (Ciclo B). Tunável sem editar código. Se este arquivo faltar ou corromper, core/balance.py usa DEFAULTS seguros.",
+
+    "firepower": {
+        "_comment": "Multiplicador de dano por disparo derivado dos hardpoints: raw = small*w_s + medium*w_m + large*w_l; firepower = raw^exponent (compressão para achatar a curva de Tier 1). Sem hardpoint de arma => fallback.",
+        "weight_small": 1.0,
+        "weight_medium": 2.0,
+        "weight_large": 4.0,
+        "exponent": 0.6,
+        "fallback": 1.0
+    },
+
+    "ai": {
+        "_comment": "Parâmetros da IA de combate (NPCManager). flee_shield_threshold=0 => piratas Tier 1 são agressivos e lutam até o fim (NPCs não recarregam escudo; fugir ao perder escudo seria um desengajamento permanente e inofensivo, tornando o duelo trivial). recover é mantido para NPCs futuros que voltem a lutar.",
+        "attack_range": 380.0,
+        "detection_range": 1000.0,
+        "fire_chance_per_tick": 0.022,
+        "flee_shield_threshold": 0.0,
+        "recover_shield_threshold": 50.0
+    },
+
+    "shield": {
+        "_comment": "Recarga de escudo do player (EnergyManager). Escala com pips de shields (pips/2.0).",
+        "base_recharge": 6.0
+    }
+}
