@@ -9,7 +9,9 @@ pygame) — ver `tests/test_save_load.py`.
 Formato do payload (ver docs/decisions/003-formato-do-save.md):
 
     {
-      "version": 1,
+      "version": 2,
+      "pilot": {"name": str},         # Ciclo D: identidade do piloto
+      "saved_at": float,              # epoch do save (exibição no menu de load)
       "player_ship": {... estado vivo da nave ...},
       "pips": {"weapons": int, "shields": int, "engines": int},
       "credits": int,                 # ÚNICA fonte de verdade dos créditos
@@ -24,12 +26,16 @@ DECISÃO DE DESIGN — fonte única de créditos:
   são gravados em UM só lugar: o campo top-level `credits`. `Ship.to_save_dict()`
   deliberadamente NÃO inclui créditos, então não há risco de dois valores
   divergirem no arquivo.
+
+VERSÃO 2 (Ciclo D): acrescenta `pilot` e `saved_at`. São campos aditivos e
+opcionais no load (`.get` com default), então saves v1 continuam carregáveis.
 """
+import time
 from typing import Any, Dict, Optional
 
 from entities.ship import Ship
 
-SAVE_VERSION = 1
+SAVE_VERSION = 2
 
 
 def build_save_payload(player_ship: Ship,
@@ -37,15 +43,19 @@ def build_save_payload(player_ship: Ship,
                        mission_mgr,
                        faction_mgr,
                        last_docked_station_id: Optional[str] = None,
-                       camera_offset=None) -> Dict[str, Any]:
+                       camera_offset=None,
+                       pilot: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Monta o dict de save completo a partir do estado vivo dos managers.
 
     `pips` é a distribuição weapons/shields/engines (fonte: PlayerManager.pips).
     `credits` é extraído de `player_ship.credits` (fonte única de verdade).
+    `pilot` é a identidade do piloto (Ciclo D); default {"name": "Piloto"}.
     """
     return {
         "version": SAVE_VERSION,
+        "pilot": dict(pilot) if pilot else {"name": "Piloto"},
+        "saved_at": time.time(),
         "player_ship": player_ship.to_save_dict(),
         "pips": dict(pips),
         "credits": int(player_ship.credits),

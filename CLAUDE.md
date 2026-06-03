@@ -127,6 +127,7 @@ python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
 python tests/test_economy_loop.py
 python tests/test_hardpoints.py
 python tests/test_save_load.py
+python tests/test_menu_flow.py        # menu, criação de piloto, novo/carregar (Ciclo D)
 ```
 
 Os testes em `tests/` que cobrem lógica pura (movimento, docking, input config)
@@ -200,16 +201,37 @@ jogador sai da tela (o loop então volta para `"paused"`).
 
 | Estado | Descrição |
 |---|---|
+| `"main_menu"` | Menu principal — **estado inicial**; o mundo ainda não existe |
+| `"pilot_creation"` | Tela de criação de piloto (digita o nome → `start_new_game`) |
+| `"load_menu"` | Lista de saves; ENTER chama `load_game(slot)` |
 | `"playing"` | Gameplay normal; inputs contínuos ativos |
-| `"paused"` | Menu de pausa (CONTINUAR / CONFIGURAR TECLAS / SAIR DO JOGO) |
-| `"keybinds"` | Tela de remapeamento de teclas; todos os eventos vão para `KeybindsUI` |
+| `"paused"` | Menu de pausa (CONTINUAR / SALVAR / SALVAR E SAIR PARA O MENU / TECLAS / SAIR) |
+| `"keybinds"` | Tela de remapeamento; `_keybinds_return` diz se volta a `"paused"` ou `"main_menu"` |
 | `"docked"` | UI da estação aberta; lógica de jogo pausada |
 | `"dying"` | Animação de morte (3 s) antes do respawn |
 
 Regras de transição importantes:
+- O jogo **abre em `"main_menu"`**; o mundo só é construído em `start_new_game`
+  ou `load_game`. `__init__` NÃO spawna player/NPCs/estações.
 - A tecla de pausa (configurável) só abre o menu durante `"playing"`.
 - ESC **nunca fecha o jogo diretamente** — sair exige "SAIR DO JOGO" no menu de pausa.
 - Desacoplar (F no menu da estação) faz transição direta `"docked"` → `"playing"` sem ambiguidade.
+
+### Ciclo de vida do mundo e limpeza do EventBus (armadilha do singleton)
+
+O `bus` (`core/event_bus.py`) é **global e singleton**, e os managers se
+inscrevem no `__init__`. Recriar managers a cada "novo jogo"/"carregar" sem
+limpar **acumularia listeners duplicados** (cada evento dispararia N vezes).
+
+Solução adotada (ver ADR 005): toda (re)construção do mundo passa por
+`SpaceRPGVisual._build_world_systems()`, que **limpa `bus._listeners` antes**
+de recriar os managers e re-inscrever os handlers de `self` (`_subscribe_self`).
+`_teardown_world()` (ao voltar ao menu) também limpa o bus e zera os managers.
+Assim, iniciar novo jogo várias vezes mantém **exatamente um** listener por
+evento (coberto por `tests/test_menu_flow.py`, item 4).
+
+`start_new_game(pilot_name)` constrói o mundo do zero; `load_game(slot)`
+reconstrói e aplica o save por cima (reusa o serializer do Ciclo C).
 
 ### Como adicionar uma nova ação remapeável
 

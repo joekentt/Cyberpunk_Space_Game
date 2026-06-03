@@ -43,6 +43,20 @@ python main.py
 SDL_VIDEODRIVER=dummy python main_pygame.py
 ```
 
+## Fluxo de entrada
+
+O jogo **abre no menu principal** (não direto no gameplay):
+
+| Opção | Efeito |
+|---|---|
+| NOVO JOGO | Abre a criação de piloto (digite um nome → começa o jogo) |
+| CARREGAR JOGO | Lista os saves (nome do piloto, créditos, data) e carrega o escolhido. Só aparece se houver saves |
+| CONFIGURAR TECLAS | Remapeamento de teclas (mesmo painel do menu de pausa) |
+| SAIR | Encerra o programa |
+
+Navegação dos menus: `↑↓` navega, `ENTER` confirma, `ESC` volta. Na criação de
+piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
+
 ## Controles (versão Pygame)
 
 > As teclas abaixo são os **padrões**. Todas são remapeáveis pelo jogador
@@ -67,8 +81,12 @@ SDL_VIDEODRIVER=dummy python main_pygame.py
 | Opção | Efeito |
 |---|---|
 | CONTINUAR | Fecha o menu e volta ao jogo |
+| SALVAR JOGO | Grava o estado no slot único |
+| SALVAR E SAIR PARA O MENU | Salva e volta ao menu principal (sem fechar o jogo) |
 | CONFIGURAR TECLAS | Abre a tela de remapeamento de keybinds |
 | SAIR DO JOGO | Encerra o programa |
+
+> Durante o jogo, **F9** recarrega o último save (atalho de debug).
 
 ### Configurar Teclas
 
@@ -111,6 +129,7 @@ python tests/test_docking.py        # ciclo de docking, mercado, respawn
 python tests/test_movement.py       # strafe, ré, hierarquia de empuxo
 python tests/test_input_config.py   # keybindings: padrões, persistência, conflitos
 python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
+python tests/test_menu_flow.py      # menu principal, criação de piloto, novo/carregar jogo
 
 # Outros testes:
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
@@ -151,10 +170,11 @@ Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 - ✅ EnergyManager (W-S-E), NPCManager (FSM chase/escort/flee/attack)
 - ✅ CombatManager: projéteis, hit detection, dano a escudos/casco
 - ✅ StationManager: docking, mercado de naves, reparo, respawn
-- ✅ Menu de pausa com CONTINUAR / SALVAR JOGO / CONFIGURAR TECLAS / SAIR DO JOGO
+- ✅ Menu principal + criação de piloto (nome) + carregar jogo (ver ADR 005)
+- ✅ Menu de pausa: CONTINUAR / SALVAR / SALVAR E SAIR PARA O MENU / TECLAS / SAIR
 - ✅ Keybindings configuráveis pelo jogador com persistência em disco
 - ✅ Save/load completo: nave (modelo, HP, escudo, pos, rotação), créditos,
-  missões ativas/concluídas e reputação de facção (slot único — ver ADR 003)
+  missões ativas/concluídas, reputação de facção e nome do piloto (ver ADR 003)
 - ✅ Geração procedural de universo e sprites (3 classes × 5 facções)
 - ✅ Versão Pygame jogável: movimento vetorial, parallax, VFX, HUD, câmera
 - ⚠️ `tests/test_factions.py` e `tests/test_universe_ai.py` desatualizados (APIs antigas)
@@ -163,5 +183,6 @@ Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 
 1. Visualização de dano progressivo nos sprites (DamageStateRenderer)
 2. Sons (módulo `audio_engine`)
-3. Menu principal e tela de criação de piloto + múltiplos slots de save (Ciclo D)
-4. Mapa estelar / sistema de viagem entre setores
+3. Múltiplos slots de save com gerenciamento (deletar/renomear)
+4. Tiers de nave / objetivo de fim de jogo (Ciclo E)
+5. Mapa estelar / sistema de viagem entre setores

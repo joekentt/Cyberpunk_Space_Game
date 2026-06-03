@@ -40,6 +40,9 @@ from visual_engine.camera import Camera, ParallaxBackground
 from visual_engine.hud import HUD
 from visual_engine.station_ui import StationUI
 from visual_engine.keybinds_ui import KeybindsUI
+from visual_engine.main_menu_ui import MainMenuUI
+from visual_engine.pilot_creation_ui import PilotCreationUI
+from visual_engine.load_menu_ui import LoadMenuUI
 from visual_engine.palette_manager import PaletteManager
 from entities.ship import Ship
 from entities.station import Station
@@ -60,68 +63,60 @@ class SpaceRPGVisual:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Estado global do jogo
-        # "playing" | "paused" | "keybinds" | "docked" | "dying"
-        self.game_state = "playing"
+        # Estado global do jogo. O jogo ABRE no menu principal — o mundo só é
+        # construído ao escolher "novo jogo" ou "carregar" (ver start_new_game /
+        # load_game). Estados: "main_menu" | "pilot_creation" | "load_menu" |
+        # "playing" | "paused" | "keybinds" | "docked" | "dying".
+        self.game_state = "main_menu"
         self._pause_selection = 0
         self.death_timer = 0.0
+        self._keybinds_return = "paused"   # para onde voltar ao fechar keybinds
+        self._menu_scroll = 0.0            # drift do parallax nas telas de menu
 
         # Configuração de teclas (carrega de config/keybinds.json, ou padrões)
         self.input_cfg = InputConfig()
         self._keymap = {}            # action -> keycode pygame
         self._rebuild_keymap()
 
-        # Lógica
-        self.universe = UniverseManager()
-        self.npc_mgr = NPCManager(self.universe)
-        self.combat_mgr = CombatManager(self.universe)
-        self.station_mgr = StationManager(self.universe)
-        self.loot_mgr = LootManager()
-
-        # Missões
-        self.mission_mgr = MissionManager()
-        missions_path = os.path.join(os.path.dirname(__file__), "data", "mission_templates.json")
-        with open(missions_path, "r", encoding="utf-8") as f:
-            all_templates = json.load(f)["templates"]
-        bounty_templates = [t for t in all_templates if t["type"] == "BOUNTY"]
-        self.mission_mgr.set_templates(bounty_templates)
-
-        # Reputação de facções (necessária para persistir no save)
-        self.faction_mgr = FactionManager()
-        factions_path = os.path.join(os.path.dirname(__file__), "data", "factions.json")
-        with open(factions_path, "r", encoding="utf-8") as f:
-            self.faction_mgr.setup_factions(json.load(f)["factions"])
-
         # Persistência (save/load)
         self.save_mgr = SaveManager(save_dir=os.path.join(os.path.dirname(__file__), "saves"))
 
-        # Textos flutuantes de recompensa: [{text, world_pos, timer, color}, ...]
-        self._floating_texts = []
-
-        # Catálogo de naves (para derivar hardpoints das naves spawnadas)
+        # Dados estáticos reusados a cada novo jogo (carregados uma vez)
+        missions_path = os.path.join(os.path.dirname(__file__), "data", "mission_templates.json")
+        with open(missions_path, "r", encoding="utf-8") as f:
+            all_templates = json.load(f)["templates"]
+        self._bounty_templates = [t for t in all_templates if t["type"] == "BOUNTY"]
+        factions_path = os.path.join(os.path.dirname(__file__), "data", "factions.json")
+        with open(factions_path, "r", encoding="utf-8") as f:
+            self._factions_data = json.load(f)["factions"]
         ships_path = os.path.join(os.path.dirname(__file__), "data", "ships.json")
         with open(ships_path, "r", encoding="utf-8") as f:
             self._ships_catalog = json.load(f)["ships"]
 
+        # Textos flutuantes de recompensa: [{text, world_pos, timer, color}, ...]
+        self._floating_texts = []
+        self.pilot_name = None
+
+        # Sistemas de MUNDO (criados em _build_world_systems; None no menu)
+        self.universe = None
+        self.npc_mgr = None
+        self.combat_mgr = None
+        self.station_mgr = None
+        self.loot_mgr = None
+        self.mission_mgr = None
+        self.faction_mgr = None
+        self.vfx = None
         self.player_id = None
         self.player_mgr = None
         self.energy_mgr = None
 
-        self._setup_stations()
-        self._spawn_player()
-        self._setup_npcs()
-
-        # Visual
+        # Visual persistente (não depende do mundo, criado uma vez só)
         self.assembler = ProceduralShipAssembler()
         self.station_gen = StationGenerator()
         self.palette_mgr = PaletteManager()
-        self.vfx = VFXGenerator()
-        self.vfx.set_universe(self.universe)
         self.camera = Camera(WIDTH, HEIGHT)
         self.parallax = ParallaxBackground(WIDTH, HEIGHT)
         self.hud = HUD(WIDTH, HEIGHT)
-
-        # Cache de sprites de estação
         self._station_sprites = {}
 
         # UI overlay
@@ -130,13 +125,57 @@ class SpaceRPGVisual:
         self.keybinds_ui = KeybindsUI(
             WIDTH, HEIGHT, self.input_cfg, on_change=self._rebuild_keymap
         )
+        self.main_menu_ui = MainMenuUI(WIDTH, HEIGHT)
+        self.pilot_creation_ui = PilotCreationUI(WIDTH, HEIGHT)
+        self.load_menu_ui = LoadMenuUI(WIDTH, HEIGHT)
 
         # Fontes
         self.label_font = pygame.font.SysFont("Consolas", 12)
         self.info_font = pygame.font.SysFont("Consolas", 14)
         self.big_font = pygame.font.SysFont("Consolas", 22, bold=True)
 
-        # Bus listeners para integração
+        # Abre direto no menu principal
+        self.main_menu_ui.open(self._has_saves())
+
+    # -------------------------------------------------------------- ciclo de vida do mundo
+
+    def _build_world_systems(self):
+        """
+        (Re)cria TODOS os sistemas que se inscrevem no EventBus.
+
+        O `bus` é global e singleton; os managers se inscrevem no __init__. Se
+        recriássemos managers sem limpar, os listeners se ACUMULARIAM (cada
+        evento dispararia N vezes). Por isso limpamos o bus aqui antes de
+        recriar tudo e re-inscrever os handlers de `self`. É a fonte única de
+        verdade para evitar listeners duplicados ao reentrar (novo jogo/load).
+        """
+        bus._listeners.clear()
+
+        self.universe = UniverseManager()
+        self.npc_mgr = NPCManager(self.universe)
+        self.combat_mgr = CombatManager(self.universe)
+        self.station_mgr = StationManager(self.universe)
+        self.loot_mgr = LootManager()
+
+        self.mission_mgr = MissionManager()
+        self.mission_mgr.set_templates(self._bounty_templates)
+
+        self.faction_mgr = FactionManager()
+        self.faction_mgr.setup_factions(self._factions_data)
+
+        self.vfx = VFXGenerator()
+        self.vfx.set_universe(self.universe)
+
+        self.player_id = None
+        self.player_mgr = None
+        self.energy_mgr = None
+        self._floating_texts = []
+        self._station_sprites = {}
+
+        self._subscribe_self()
+
+    def _subscribe_self(self):
+        """Inscreve os handlers de integração do próprio jogo no bus."""
         bus.subscribe("DOCKED", self._on_docked)
         bus.subscribe("UNDOCKED", self._on_undocked)
         bus.subscribe("SHIP_PURCHASED", self._on_ship_purchased)
@@ -144,6 +183,91 @@ class SpaceRPGVisual:
         bus.subscribe("MISSION_ACCEPT_REQUEST", self._on_mission_accept_request)
         bus.subscribe("ADD_CREDITS", self._on_add_credits)
         bus.subscribe("MISSION_COMPLETED", self._on_mission_completed)
+
+    def _teardown_world(self):
+        """Descarta o mundo atual com segurança ao voltar para o menu."""
+        bus._listeners.clear()
+        self.universe = None
+        self.npc_mgr = None
+        self.combat_mgr = None
+        self.station_mgr = None
+        self.loot_mgr = None
+        self.mission_mgr = None
+        self.faction_mgr = None
+        self.vfx = None
+        self.player_id = None
+        self.player_mgr = None
+        self.energy_mgr = None
+        self._floating_texts = []
+
+    # -------------------------------------------------------------- novo jogo / carregar / menu
+
+    def start_new_game(self, pilot_name: str):
+        """Constrói um mundo novo do zero e entra em jogo."""
+        self._build_world_systems()
+        self.pilot_name = (pilot_name or "Piloto").strip() or "Piloto"
+        self._setup_stations()
+        self._spawn_player()
+        self._setup_npcs()
+
+        player = self.universe.entities[self.player_id]
+        self.camera.offset = [player.position[0] - WIDTH / 2,
+                              player.position[1] - HEIGHT / 2]
+        self.game_state = "playing"
+
+    def _go_main_menu(self):
+        """Volta ao menu principal, descartando o mundo (sem fechar o jogo)."""
+        self._teardown_world()
+        self.game_state = "main_menu"
+        self.main_menu_ui.open(self._has_saves())
+
+    def _has_saves(self) -> bool:
+        return len(self.save_mgr.list_saves()) > 0
+
+    @staticmethod
+    def _slot_from_filename(fname: str):
+        """Extrai o número do slot de 'save_slot_{n}.json' (ou None)."""
+        base = os.path.basename(fname)
+        if base.startswith("save_slot_") and base.endswith(".json"):
+            try:
+                return int(base[len("save_slot_"):-len(".json")])
+            except ValueError:
+                return None
+        return None
+
+    def _save_entries(self):
+        """Monta a lista de saves para a LoadMenuUI (nome, créditos, data)."""
+        entries = []
+        for fname in self.save_mgr.list_saves():
+            slot = self._slot_from_filename(fname)
+            if slot is None:
+                continue
+            try:
+                payload = self.save_mgr.load_game(slot)
+            except Exception:
+                continue
+            entries.append({
+                "slot": slot,
+                "pilot": payload.get("pilot", {}).get("name", "?"),
+                "credits": payload.get("credits", 0),
+                "saved_at": payload.get("saved_at"),
+            })
+        entries.sort(key=lambda e: e["slot"])
+        return entries
+
+    def _activate_main_menu(self, action: str):
+        if action == "new_game":
+            self.pilot_creation_ui.open()
+            self.game_state = "pilot_creation"
+        elif action == "load":
+            self.load_menu_ui.open(self._save_entries())
+            self.game_state = "load_menu"
+        elif action == "keybinds":
+            self.keybinds_ui.open()
+            self._keybinds_return = "main_menu"
+            self.game_state = "keybinds"
+        elif action == "quit":
+            self.running = False
 
     # -------------------------------------------------------------- setup
 
@@ -258,6 +382,7 @@ class SpaceRPGVisual:
         return [
             ("CONTINUAR", "resume"),
             ("SALVAR JOGO", "save"),
+            ("SALVAR E SAIR PARA O MENU", "save_quit_menu"),
             ("CONFIGURAR TECLAS", "keybinds"),
             ("SAIR DO JOGO", "quit"),
         ]
@@ -268,17 +393,21 @@ class SpaceRPGVisual:
         elif key == "save":
             self._save_game()
             self.game_state = "playing"
+        elif key == "save_quit_menu":
+            self._save_game()
+            self._go_main_menu()
         elif key == "keybinds":
             self.keybinds_ui.open()
+            self._keybinds_return = "paused"
             self.game_state = "keybinds"
         elif key == "quit":
             self.running = False
 
     # -------------------------------------------------------------- save / load
 
-    def _save_game(self):
-        """Monta o payload e grava no slot único (Ciclo C)."""
-        player = self.universe.entities.get(self.player_id)
+    def _save_game(self, slot: int = SAVE_SLOT):
+        """Monta o payload (inclui o piloto) e grava no slot."""
+        player = self.universe.entities.get(self.player_id) if self.universe else None
         if not player:
             return
         payload = build_save_payload(
@@ -288,8 +417,9 @@ class SpaceRPGVisual:
             faction_mgr=self.faction_mgr,
             last_docked_station_id=self.station_mgr.last_docked_station_id,
             camera_offset=list(self.camera.offset),
+            pilot={"name": self.pilot_name or "Piloto"},
         )
-        self.save_mgr.save_game(SAVE_SLOT, payload)
+        self.save_mgr.save_game(slot, payload)
         self._floating_texts.append({
             "text": "JOGO SALVO",
             "pos": list(player.position),
@@ -297,25 +427,25 @@ class SpaceRPGVisual:
             "color": (120, 220, 255),
         })
 
-    def load_game(self) -> bool:
+    def load_game(self, slot: int = SAVE_SLOT) -> bool:
         """
-        Carrega o save do slot único e aplica ao estado atual.
+        Carrega um save e RECONSTRÓI o mundo a partir dele.
 
-        Função pública pronta para o Ciclo D (menu principal) consumir.
-        Neste ciclo é disparada por uma tecla de debug (F9). Retorna True
-        se carregou com sucesso.
+        Chamado pelo menu de carregar (Ciclo D) e também pela tecla de debug F9
+        durante o jogo. Reconstrói os managers (limpando o bus — sem listeners
+        duplicados), recria estações/NPCs e aplica o estado salvo do jogador.
+        Retorna True se carregou.
         """
         try:
-            payload = self.save_mgr.load_game(SAVE_SLOT)
-        except FileNotFoundError:
-            self._floating_texts.append({
-                "text": "NENHUM SAVE ENCONTRADO",
-                "pos": list(self.universe.entities[self.player_id].position)
-                       if self.player_id in self.universe.entities else [0, 0],
-                "timer": 2.2,
-                "color": (255, 120, 120),
-            })
+            payload = self.save_mgr.load_game(slot)
+        except (FileNotFoundError, ValueError):
             return False
+
+        # Mundo novo do zero, depois aplica o estado salvo por cima.
+        self._build_world_systems()
+        self._setup_stations()
+        self._setup_npcs()
+        self._spawn_player()   # cria managers + player placeholder
 
         self.player_id = apply_save_payload(
             payload=payload,
@@ -327,13 +457,14 @@ class SpaceRPGVisual:
             station_mgr=self.station_mgr,
             old_player_id=self.player_id,
         )
+        self.pilot_name = payload.get("pilot", {}).get("name", "Piloto")
         self.station_ui.player = self.universe.entities[self.player_id]
-        self.game_state = "playing"
 
         offset = payload.get("camera_offset")
         if offset:
             self.camera.offset = list(offset)
 
+        self.game_state = "playing"
         player = self.universe.entities[self.player_id]
         self._floating_texts.append({
             "text": "JOGO CARREGADO",
@@ -351,6 +482,31 @@ class SpaceRPGVisual:
                 self.running = False
                 continue
 
+            # ---- Telas de moldura (menu principal, criação, carregar) ----
+            if self.game_state == "main_menu":
+                action = self.main_menu_ui.handle_event(ev)
+                if action:
+                    self._activate_main_menu(action)
+                continue
+
+            if self.game_state == "pilot_creation":
+                res = self.pilot_creation_ui.handle_event(ev)
+                if res == "confirm":
+                    self.start_new_game(self.pilot_creation_ui.name)
+                elif res == "cancel":
+                    self._go_main_menu()
+                continue
+
+            if self.game_state == "load_menu":
+                res = self.load_menu_ui.handle_event(ev)
+                if isinstance(res, tuple) and res[0] == "load":
+                    if not self.load_game(res[1]):
+                        # falhou — volta ao menu (não deveria ocorrer)
+                        self._go_main_menu()
+                elif res == "back":
+                    self._go_main_menu()
+                continue
+
             # UI da estação consome eventos quando acoplado
             if self.game_state == "docked":
                 if self.station_ui.handle_event(ev):
@@ -359,11 +515,16 @@ class SpaceRPGVisual:
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     continue
 
-            # Tela de configuração de teclas consome todos os eventos
+            # Tela de configuração de teclas consome todos os eventos.
+            # Pode ter sido aberta pelo menu de pausa OU pelo menu principal —
+            # _keybinds_return diz para onde voltar.
             if self.game_state == "keybinds":
                 if self.keybinds_ui.handle_event(ev) == "close":
-                    self.game_state = "paused"
-                    self._pause_selection = 0
+                    self.game_state = self._keybinds_return
+                    if self._keybinds_return == "paused":
+                        self._pause_selection = 0
+                    elif self._keybinds_return == "main_menu":
+                        self.main_menu_ui.open(self._has_saves())
                 continue
 
             if ev.type != pygame.KEYDOWN:
@@ -632,6 +793,15 @@ class SpaceRPGVisual:
             dt = self.clock.tick(60) / 1000.0
             self._handle_input()
 
+            # Telas de moldura: anima o fundo estelar e o caret do input
+            if self.game_state in ("main_menu", "pilot_creation", "load_menu") or \
+                    (self.game_state == "keybinds" and self._keybinds_return == "main_menu"):
+                self._menu_scroll += 12.0 * dt
+                if self.game_state == "pilot_creation":
+                    self.pilot_creation_ui.update(dt)
+                self._render()
+                continue
+
             # Update
             if self.game_state == "playing":
                 self.universe.update(dt)
@@ -672,6 +842,24 @@ class SpaceRPGVisual:
 
     def _render(self):
         self.screen.fill(BG_COLOR)
+
+        # ---- Telas de moldura: fundo estelar com drift + a UI por cima ----
+        menu_keybinds = (self.game_state == "keybinds"
+                         and self._keybinds_return == "main_menu")
+        if self.game_state in ("main_menu", "pilot_creation", "load_menu") or menu_keybinds:
+            self.parallax.draw(self.screen, (self._menu_scroll, self._menu_scroll * 0.6))
+            if self.game_state == "main_menu":
+                self.main_menu_ui.draw(self.screen)
+            elif self.game_state == "pilot_creation":
+                self.pilot_creation_ui.draw(self.screen)
+            elif self.game_state == "load_menu":
+                self.load_menu_ui.draw(self.screen)
+            elif menu_keybinds:
+                self.keybinds_ui.draw(self.screen)
+            self._draw_fps()
+            pygame.display.flip()
+            return
+
         self.parallax.draw(self.screen, self.camera.offset)
 
         # Estações (atrás de tudo)
@@ -818,9 +1006,14 @@ class SpaceRPGVisual:
             self.label_font.render(f"NAVE: {player.name}", True, (180, 200, 220)),
             (bar_x, bar_y - 64)
         )
+        if self.pilot_name:
+            self.screen.blit(
+                self.label_font.render(f"PILOTO: {self.pilot_name}", True, (160, 200, 255)),
+                (bar_x, bar_y - 78)
+            )
 
         # Missões ativas
-        hud_y = bar_y - 82
+        hud_y = bar_y - 96
         for mission in self.mission_mgr.active_missions.values():
             kill_obj = next(
                 (o for o in mission.objectives if o.get("type") == "KILL"), None
@@ -913,6 +1106,11 @@ def main():
     headless = os.environ.get("SDL_VIDEODRIVER") == "dummy"
     game = SpaceRPGVisual()
     if headless:
+        # O jogo abre no menu; o smoke valida o boot do menu e depois um
+        # mundo recém-iniciado.
+        assert game.game_state == "main_menu" and game.player_id is None
+        game._render()  # desenha o menu uma vez
+        game.start_new_game("Smoke")
         for i in range(60):
             game.clock.tick(60)
             game.universe.update(1 / 60)
@@ -927,7 +1125,7 @@ def main():
                 game.camera.follow(player.position, 1 / 60)
                 game.station_mgr.update(1 / 60, player.position)
             game._render()
-        print(f"OK — {len(game.universe.entities)} naves, "
+        print(f"OK — menu boot + {len(game.universe.entities)} naves, "
               f"{len(game.station_mgr.stations)} estações")
         pygame.quit()
         return
