@@ -33,6 +33,7 @@ from systems.loot_manager import LootManager
 from systems.mission_manager import MissionManager
 from systems.faction_manager import FactionManager
 from systems.game_state_serializer import build_save_payload, apply_save_payload
+from systems.progression_manager import ProgressionManager, WIN_BOUNTY_COUNT
 from visual_engine.procedural_assembler import ProceduralShipAssembler
 from visual_engine.station_generator import StationGenerator
 from visual_engine.vfx_generator import VFXGenerator, render_projectile
@@ -43,6 +44,7 @@ from visual_engine.keybinds_ui import KeybindsUI
 from visual_engine.main_menu_ui import MainMenuUI
 from visual_engine.pilot_creation_ui import PilotCreationUI
 from visual_engine.load_menu_ui import LoadMenuUI
+from visual_engine.endgame_ui import EndgameUI
 from visual_engine.palette_manager import PaletteManager
 from entities.ship import Ship
 from entities.station import Station
@@ -105,6 +107,7 @@ class SpaceRPGVisual:
         self.loot_mgr = None
         self.mission_mgr = None
         self.faction_mgr = None
+        self.prog_mgr = None
         self.vfx = None
         self.player_id = None
         self.player_mgr = None
@@ -128,6 +131,7 @@ class SpaceRPGVisual:
         self.main_menu_ui = MainMenuUI(WIDTH, HEIGHT)
         self.pilot_creation_ui = PilotCreationUI(WIDTH, HEIGHT)
         self.load_menu_ui = LoadMenuUI(WIDTH, HEIGHT)
+        self.endgame_ui = EndgameUI(WIDTH, HEIGHT)
 
         # Fontes
         self.label_font = pygame.font.SysFont("Consolas", 12)
@@ -166,6 +170,8 @@ class SpaceRPGVisual:
         self.vfx = VFXGenerator()
         self.vfx.set_universe(self.universe)
 
+        self.prog_mgr = ProgressionManager()
+
         self.player_id = None
         self.player_mgr = None
         self.energy_mgr = None
@@ -183,6 +189,7 @@ class SpaceRPGVisual:
         bus.subscribe("MISSION_ACCEPT_REQUEST", self._on_mission_accept_request)
         bus.subscribe("ADD_CREDITS", self._on_add_credits)
         bus.subscribe("MISSION_COMPLETED", self._on_mission_completed)
+        bus.subscribe("GAME_COMPLETED", self._on_game_completed)
 
     def _teardown_world(self):
         """Descarta o mundo atual com segurança ao voltar para o menu."""
@@ -194,6 +201,7 @@ class SpaceRPGVisual:
         self.loot_mgr = None
         self.mission_mgr = None
         self.faction_mgr = None
+        self.prog_mgr = None
         self.vfx = None
         self.player_id = None
         self.player_mgr = None
@@ -272,7 +280,6 @@ class SpaceRPGVisual:
     # -------------------------------------------------------------- setup
 
     def _setup_stations(self):
-        # Duas estações no mapa para o jogador ter pra onde ir
         hub1 = Station(
             id="station_alpha",
             name="Hub Alpha",
@@ -281,7 +288,8 @@ class SpaceRPGVisual:
             station_class="Hub",
             model_id="hub_alpha",
             services=["shipyard", "repair", "refuel"],
-            ship_inventory=["wasp_combat", "albatross_explorer", "mule_trader"],
+            ship_inventory=["wasp_combat", "albatross_explorer", "mule_trader",
+                            "terraformador_ligeiro"],
         )
         self.station_mgr.spawn_station(hub1)
 
@@ -293,9 +301,23 @@ class SpaceRPGVisual:
             station_class="Hub",
             model_id="hub_alpha",
             services=["shipyard", "repair"],
-            ship_inventory=["wasp_combat", "albatross_explorer"],
+            ship_inventory=["wasp_combat", "albatross_explorer",
+                            "stingray_raider"],
         )
         self.station_mgr.spawn_station(hub2)
+
+        # Fronteira — estação pirata com acesso às melhores naves Tier 2
+        hub3 = Station(
+            id="station_gamma",
+            name="Posto Fronteira",
+            position=[2600, 400],
+            faction="Pirates",
+            station_class="Outpost",
+            model_id="hub_alpha",
+            services=["shipyard", "repair"],
+            ship_inventory=["stingray_raider", "terraformador_ligeiro"],
+        )
+        self.station_mgr.spawn_station(hub3)
 
     def _hardpoints_for(self, model_id: str) -> dict:
         """Busca os hardpoints declarados no ships.json por model_id/id."""
@@ -418,6 +440,7 @@ class SpaceRPGVisual:
             last_docked_station_id=self.station_mgr.last_docked_station_id,
             camera_offset=list(self.camera.offset),
             pilot={"name": self.pilot_name or "Piloto"},
+            progression=self.prog_mgr.get_save_data() if self.prog_mgr else {},
         )
         self.save_mgr.save_game(slot, payload)
         self._floating_texts.append({
@@ -459,6 +482,7 @@ class SpaceRPGVisual:
         )
         self.pilot_name = payload.get("pilot", {}).get("name", "Piloto")
         self.station_ui.player = self.universe.entities[self.player_id]
+        self.prog_mgr.load_save_data(payload.get("progression", {}))
 
         offset = payload.get("camera_offset")
         if offset:
@@ -528,6 +552,15 @@ class SpaceRPGVisual:
                 continue
 
             if ev.type != pygame.KEYDOWN:
+                continue
+
+            # Tela de fim de jogo
+            if self.game_state == "endgame":
+                res = self.endgame_ui.handle_event(ev)
+                if res == "menu":
+                    self._go_main_menu()
+                elif res == "continue":
+                    self.game_state = "playing"
                 continue
 
             # Tecla de pausa (configurável) abre o menu durante o jogo
@@ -737,6 +770,10 @@ class SpaceRPGVisual:
             "color": (80, 255, 180),
         })
 
+    def _on_game_completed(self, data):
+        self.game_state = "endgame"
+        self.endgame_ui.open(self.pilot_name)
+
     # -------------------------------------------------------------- respawn
 
     def _respawn(self):
@@ -816,6 +853,9 @@ class SpaceRPGVisual:
                 if player:
                     self.camera.follow(player.position, dt)
                     self.station_mgr.update(dt, player.position)
+
+            elif self.game_state == "endgame":
+                self.vfx.update(dt)
 
             elif self.game_state == "docked":
                 self.station_ui.update(dt)
@@ -907,6 +947,8 @@ class SpaceRPGVisual:
             self.station_ui.draw(self.screen)
         elif self.game_state == "dying":
             self._draw_dying_overlay()
+        elif self.game_state == "endgame":
+            self.endgame_ui.draw(self.screen)
 
         self._draw_controls()
         self._draw_fps()
@@ -1012,8 +1054,23 @@ class SpaceRPGVisual:
                 (bar_x, bar_y - 78)
             )
 
-        # Missões ativas
+        # Progresso de vitória (Ciclo E)
         hud_y = bar_y - 96
+        if self.prog_mgr:
+            bc = self.prog_mgr.bounties_completed
+            if self.prog_mgr.game_completed:
+                prog_text = f"OBJETIVO: CONCLUÍDO ({bc}/{WIN_BOUNTY_COUNT})"
+                prog_color = (80, 255, 180)
+            else:
+                prog_text = f"OBJETIVO: {bc}/{WIN_BOUNTY_COUNT} bounties"
+                prog_color = (200, 200, 100)
+            self.screen.blit(
+                self.label_font.render(prog_text, True, prog_color),
+                (bar_x, hud_y)
+            )
+            hud_y -= 14
+
+        # Missões ativas
         for mission in self.mission_mgr.active_missions.values():
             kill_obj = next(
                 (o for o in mission.objectives if o.get("type") == "KILL"), None

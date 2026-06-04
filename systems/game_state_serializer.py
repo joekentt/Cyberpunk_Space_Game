@@ -44,13 +44,15 @@ def build_save_payload(player_ship: Ship,
                        faction_mgr,
                        last_docked_station_id: Optional[str] = None,
                        camera_offset=None,
-                       pilot: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                       pilot: Optional[Dict[str, Any]] = None,
+                       progression: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Monta o dict de save completo a partir do estado vivo dos managers.
 
     `pips` é a distribuição weapons/shields/engines (fonte: PlayerManager.pips).
     `credits` é extraído de `player_ship.credits` (fonte única de verdade).
     `pilot` é a identidade do piloto (Ciclo D); default {"name": "Piloto"}.
+    `progression` é o estado do ProgressionManager (Ciclo E); campo aditivo.
     """
     return {
         "version": SAVE_VERSION,
@@ -63,6 +65,7 @@ def build_save_payload(player_ship: Ship,
         "factions": faction_mgr.get_save_data(),
         "last_docked_station_id": last_docked_station_id,
         "camera_offset": list(camera_offset) if camera_offset else [0.0, 0.0],
+        "progression": dict(progression) if progression else {},
     }
 
 
