@@ -1,5 +1,6 @@
 from entities.ship import Ship
 from core.event_bus import bus
+from core.balance import balance
 
 class EnergyManager:
     """
@@ -8,9 +9,9 @@ class EnergyManager:
     def __init__(self, ship: Ship):
         self.ship = ship
         self.pips = {"weapons": 2, "shields": 2, "engines": 2}
-        
-        # Taxas de recarga base
-        self.base_recharge = 5.0
+
+        # Taxa de recarga base de escudo (data/balance.json)
+        self.base_recharge = balance.shield["base_recharge"]
 
     def set_pips(self, weapons: int, shields: int, engines: int):
         """Define a distribuição de pips (máximo total de 6 pips)."""
@@ -31,10 +32,14 @@ class EnergyManager:
         if self.ship.current_heat > 80.0:
             bus.emit("HEAT_WARNING", self.ship.current_heat)
         
-        # 2. Recarga de Escudos (baseado em pips de Shields)
-        if self.ship.current_shields < 100.0:
+        # 2. Recarga de Escudos (baseado em pips de Shields).
+        # Usa max_shields da nave (não 100 fixo) para não sobrecarregar naves
+        # com escudo menor (ex.: Wasp 80) nem subcarregar as de escudo maior.
+        if self.ship.current_shields < self.ship.max_shields:
             shield_recharge = (self.base_recharge * (self.pips["shields"] / 2.0)) * dt
-            self.ship.current_shields = min(100.0, self.ship.current_shields + shield_recharge)
+            self.ship.current_shields = min(
+                self.ship.max_shields, self.ship.current_shields + shield_recharge
+            )
 
         # 3. Consumo passivo de energia (simulação)
         # Em um sistema real, isso recarregaria capacitores de armas/motores

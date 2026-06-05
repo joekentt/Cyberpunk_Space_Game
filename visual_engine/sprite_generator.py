@@ -22,6 +22,10 @@ from typing import Tuple, List, Dict
 
 RGBA = Tuple[int, int, int, int]
 
+# Cor das luzes de navegação "quentes" (strobe âmbar), usada junto da cor
+# accent da facção. Dá o segundo tom emissivo pedido sem apagar a identidade.
+WARM_LIGHT: RGBA = (255, 190, 110, 255)
+
 
 # --------------------------------------------------------------------------
 # Perfis de silhueta por classe
@@ -38,203 +42,324 @@ SHIP_PROFILES: Dict[str, Dict] = {
     # ----- Modelos específicos (use model_id para selecionar) -----
 
     "starter_skiff": {
-        # Skiff Mk I — nave inicial padrão de todo jogador.
-        # Forma de "gota" achatada: módulo central compacto sem nada
-        # aerodinâmico. As "saliências" laterais são pequenos RADIADORES
-        # de dissipação de calor + acoplagens de hardpoints (não asas).
-        # Cockpit amplo na frente, motor único discreto na traseira.
-        # Vibe: civil, confiável, produção em massa para uso espacial.
+        # Terran Skiff Mk II — escolta civil de médio alcance, upgrade do Mk I.
+        # Corpo central elongado e magro com DOIS PODS DE MOTOR nas traseiras
+        # que se projetam para fora do corpo principal (nacelles angulares).
+        # Nariz fino pontudo, cockpit embutido, linhas limpas de escolta.
+        # Vibe: civil de alta qualidade, confiável, produção em série para comboios.
         "hull": [
-            (0.78, 0.00),     # nariz arredondado
-            (0.68, 0.18),
-            (0.52, 0.34),
-            (0.30, 0.42),
-            (0.10, 0.46),     # cintura - largura máxima
-            (-0.05, 0.50),    # pequena projeção do radiador (curta, modular)
-            (-0.15, 0.50),
-            (-0.22, 0.46),
-            (-0.45, 0.40),
-            (-0.62, 0.28),
-            (-0.78, 0.18),    # cone traseiro
-            (-0.85, 0.10),
-            (-0.85, 0.00),
+            (0.88, 0.00),     # nariz fino pontudo — Mk II mais afilado que Mk I
+            (0.76, 0.08),     # pescoço estreito
+            (0.62, 0.16),
+            (0.44, 0.24),     # corpo se abre para a largura máxima
+            (0.20, 0.28),
+            (-0.02, 0.28),    # cintura quase plana (corpo central retangular)
+            (-0.16, 0.30),    # leve alargamento antes do pod
+            (-0.28, 0.40),    # ombro do pod — sobe rápido para o nacelle
+            (-0.40, 0.50),    # canto frontal externo do pod
+            (-0.55, 0.52),    # topo do pod (quase horizontal, plano)
+            (-0.66, 0.50),    # canto traseiro do pod
+            (-0.74, 0.38),    # pod afila na traseira
+            (-0.82, 0.20),
+            (-0.88, 0.08),    # popa
+            (-0.88, 0.00),
         ],
-        "canvas_size": 64,
-        "fill_ratio": 0.92,
-        "cockpit": [
-            (0.40, 0.0, 0.14, 0.10),       # cockpit AMPLO um pouco recuado
+        "canvas_size": 72,
+        "fill_ratio": 0.90,
+        "cockpit": [(0.52, 0.0, 0.10, 0.08)],
+        "engines": [
+            (-0.70, 0.44, 0.08),   # motor do pod nacelle superior
+            (-0.70, -0.44, 0.08),  # motor do pod nacelle inferior
+            (-0.88, 0.00, 0.04),   # motor central auxiliar
         ],
-        "engines": [(-0.85, 0.0, 0.08)],   # motor único pequeno (discreto)
-        "hardpoints": [(0.15, 0.42), (-0.10, 0.48)],
+        "hardpoints": [(0.18, 0.26), (-0.20, 0.44)],
         "panel_lines": [
-            ((0.62, 0.0), (-0.72, 0.0)),     # quilha central
-            ((0.45, 0.20), (-0.30, 0.40)),
-            ((0.05, 0.46), (0.05, -0.46)),   # mamparo frontal
-            ((-0.35, 0.40), (-0.35, -0.40)), # mamparo traseiro
-            # Detalhes do "radiador" curto
-            ((-0.05, 0.50), (-0.15, 0.50)),
-            ((-0.05, -0.50), (-0.15, -0.50)),
+            ((0.75, 0.00), (-0.78, 0.00)),       # quilha central
+            ((0.55, 0.14), (-0.10, 0.26)),       # linha superior do corpo
+            ((0.02, 0.28), (0.02, -0.28)),       # mamparo frontal
+            ((-0.28, 0.40), (-0.28, -0.40)),     # parede frontal do pod
+            ((-0.40, 0.50), (-0.66, 0.50)),      # face superior do pod (horizontal)
+        ],
+        "nav_lights": [
+            (0.80, 0.04, "warm"),     # proa
+            (0.16, 0.26, "accent"),   # cintura
+            (-0.52, 0.50, "warm"),    # centro do pod nacelle
+            (-0.80, 0.18, "accent"),  # popa
+        ],
+        "accent_stripe": [
+            [(0.58, 0.14), (0.08, 0.24), (-0.22, 0.28), (-0.60, 0.44)],
         ],
     },
 
     "wasp_combat": {
-        # Wasp — interceptador espacial. Construção MODULAR ANGULAR:
-        # corpo central retangular + spinal mount frontal (canhão fino
-        # com base alargada) + dois pods de hardpoint laterais (cubos
-        # retangulares, não asas curvas) + bateria de motores traseira.
-        # Tudo com cantos vivos e linhas retas. Estética The Expanse.
-        # Vibe: plataforma de armas modular soldada em estaleiro orbital.
+        # Swarm Wasp Mk III — interceptador de próxima geração.
+        # DELTA alargado: nariz de arma fino que explode em leque para uma
+        # bateria de quatro motores traseira. Sem pods separados —
+        # o corpo É a asa. Visual de máquina de guerra pura.
+        # Vibe: interceptador sem misericórdia, sem carga, tudo em arma e motor.
         "hull": [
-            # Spinal mount (canhão fino projetado pra frente)
-            (1.00, 0.04),    # ponta
-            (0.95, 0.04),
-            (0.92, 0.10),    # base do canhão alarga em cantos vivos
-            (0.55, 0.10),    # encontro com o corpo central
-
-            # Corpo central retangular (linhas retas)
-            (0.55, 0.22),    # canto frontal superior do corpo
-            (0.40, 0.22),    # entalhe pro pod lateral
-            (0.40, 0.45),    # pod lateral frontal: canto externo inferior
-            (0.20, 0.50),    # pod: borda superior plana
-            (0.00, 0.50),
-            (-0.05, 0.45),   # canto interno do pod
-            (-0.05, 0.22),   # de volta ao corpo central
-
-            (-0.30, 0.22),   # corpo continua reto
-
-            # Pod lateral traseiro (igual angular)
-            (-0.30, 0.45),   # canto frontal do pod traseiro
-            (-0.40, 0.52),   # canto externo
-            (-0.55, 0.52),
-            (-0.62, 0.45),   # canto interno traseiro
-            (-0.62, 0.22),   # de volta ao corpo
-
-            # Bateria de motores em "degraus" angulares
-            (-0.70, 0.22),
-            (-0.78, 0.20),
-            (-0.85, 0.15),   # canto da bateria
-            (-0.88, 0.06),
+            (0.98, 0.04),    # ponta do canhão spinal (ultra-fino)
+            (0.90, 0.04),
+            (0.82, 0.14),    # base do canhão alarga em degrau vivo
+            (0.58, 0.16),    # corpo frontal (retangular, modular)
+            (0.45, 0.28),    # delta começa a abrir agressivamente
+            (0.22, 0.52),    # asa em delta — inclinação acentuada
+            (-0.02, 0.62),   # pico da asa (extensão máxima)
+            (-0.28, 0.62),   # asa traseira — larga e plana
+            (-0.48, 0.52),   # curvatura interna da asa traseira
+            (-0.62, 0.36),   # contrai em direção à bateria de motores
+            (-0.76, 0.22),   # bateria de 4 escapes
+            (-0.84, 0.12),
+            (-0.88, 0.04),
             (-0.88, 0.00),
         ],
-        "canvas_size": 80,
-        "fill_ratio": 0.92,
-        "cockpit": [(0.30, 0.0, 0.07, 0.05)],   # cockpit pequeno no corpo central
+        "canvas_size": 88,
+        "fill_ratio": 0.88,
+        "cockpit": [(0.36, 0.0, 0.06, 0.04)],
         "engines": [
-            # Bateria de motores (vários menores em vez de 2 grandes)
-            (-0.88, 0.12, 0.05),
-            (-0.88, 0.0, 0.06),
-            (-0.88, -0.12, 0.05),
+            (-0.82, 0.22, 0.07),   # motor externo superior
+            (-0.86, 0.08, 0.09),   # motor interno superior
+            (-0.86, -0.08, 0.09),  # motor interno inferior
+            (-0.82, -0.22, 0.07),  # motor externo inferior
         ],
         "hardpoints": [
-            (0.97, 0.04),     # boca do canhão central
-            (0.10, 0.48),     # torre do pod frontal
-            (-0.48, 0.50),    # torre do pod traseiro
+            (0.94, 0.04),     # boca do canhão central
+            (0.08, 0.58),     # torre na asa (pico)
+            (-0.22, 0.60),    # torre na asa traseira
+            (0.34, 0.24),     # hardpoint lateral do corpo
         ],
         "panel_lines": [
-            # Detalhes técnicos retos (não curvos)
-            ((0.85, 0.04), (0.55, 0.10)),     # transição do canhão
-            ((0.55, 0.10), (0.55, -0.10)),    # parede frontal do corpo
-            ((0.40, 0.45), (0.40, -0.45)),    # parede do pod frontal
-            ((-0.30, 0.45), (-0.30, -0.45)),  # parede do pod traseiro
-            ((-0.62, 0.22), (-0.62, -0.22)),  # parede da bateria
-            ((0.0, 0.0), (-0.65, 0.0)),       # quilha central
-            # Paineis nos pods
-            ((0.40, 0.48), (0.0, 0.48)),
-            ((-0.30, 0.48), (-0.55, 0.48)),
+            ((0.82, 0.04), (0.58, 0.14)),     # transição canhão→corpo
+            ((0.58, 0.14), (0.58, -0.14)),    # parede frontal do corpo
+            ((0.45, 0.24), (-0.26, 0.60)),    # nervura delta principal
+            ((-0.46, 0.50), (-0.62, 0.34)),   # curvatura interna da asa
+            ((0.00, 0.00), (-0.78, 0.00)),    # quilha central
+            ((-0.02, 0.60), (-0.28, 0.60)),   # borda da asa traseira
+        ],
+        "nav_lights": [
+            (0.88, 0.07, "warm"),     # base do canhão
+            (0.04, 0.59, "accent"),   # pico da asa
+            (-0.26, 0.60, "accent"),  # asa traseira
+            (-0.82, 0.20, "warm"),    # bateria de motores
+        ],
+        "accent_stripe": [
+            [(0.58, 0.12), (-0.02, 0.12), (-0.58, 0.28), (-0.80, 0.16)],
         ],
     },
 
     "albatross_explorer": {
-        # Albatross — sonda exploradora espacial. Corpo central magro
-        # estruturado tipo "satélite", com PAINEIS SOLARES/RADIADORES
-        # estendidos lateralmente (forma retangular, não aerodinâmica),
-        # array de SENSORES frontais (nariz com prongs), motor único
-        # grande na traseira. Inspirado em Voyager/New Horizons/Cassini.
-        # Vibe: probe científica, instrumentos expostos, sem nada que
-        # sugira aerodinâmica.
+        # Albatross / Prospector — sonda industrial de longo alcance.
+        # BOOM frontal ultra-fino (sensor + perfurador) projetado para frente,
+        # suportado por módulo central de instrumentos. PAINÉIS DE COLETA
+        # laterais retangulares (coletores de amostra e antenas — não asas!).
+        # Motor de alta eficiência único na traseira.
+        # Vibe: robô industrial espacial — Curiosity rover mas em nave.
         "hull": [
-            (1.00, 0.0),     # ponta do array de sensores frontal
-            (0.95, 0.05),
-            (0.85, 0.06),    # base do array
-            (0.78, 0.16),
-            (0.60, 0.16),    # corpo central começa (módulo principal)
-            (0.55, 0.40),    # painel solar frontal - retangular, não asa!
-            (0.50, 0.48),    # canto externo do painel
-            (0.20, 0.50),    # painel é retangular (lado externo plano)
-            (0.15, 0.42),
-            (0.10, 0.20),    # volta ao corpo central
-            (-0.10, 0.20),
-            (-0.15, 0.42),
-            (-0.20, 0.50),   # segundo painel solar (traseiro)
-            (-0.55, 0.50),
-            (-0.60, 0.42),
-            (-0.65, 0.20),   # volta ao corpo (atrás dos painéis)
-            (-0.75, 0.18),
-            (-0.85, 0.14),   # cone do motor
-            (-0.90, 0.08),
-            (-0.90, 0.0),
+            (1.00, 0.00),    # ponta do boom frontal (sensor/drill)
+            (0.95, 0.04),    # haste ultra-fina do boom
+            (0.88, 0.05),
+            (0.80, 0.15),    # base do boom encontra o módulo central
+            (0.70, 0.16),    # módulo frontal começa (câmara de instrumentos)
+            (0.62, 0.38),    # PAINEL DE COLETA retangular lateral
+            (0.52, 0.50),    # canto externo do painel
+            (0.18, 0.52),    # borda superior plana do painel (horizontal)
+            (0.12, 0.40),    # painel volta ao corpo
+            (0.05, 0.18),    # cintura do corpo central
+            (-0.08, 0.18),   # corpo central simétrico
+            (-0.16, 0.40),   # segundo painel começa
+            (-0.24, 0.52),   # canto externo painel 2
+            (-0.58, 0.52),   # borda superior plana painel 2
+            (-0.65, 0.38),   # painel 2 volta ao corpo
+            (-0.76, 0.18),   # cone do motor (afunila para o escape)
+            (-0.86, 0.08),
+            (-0.90, 0.00),   # popa
         ],
         "canvas_size": 80,
-        "fill_ratio": 0.94,
-        "cockpit": [(0.35, 0.0, 0.08, 0.06)],
-        "engines": [(-0.90, 0.0, 0.10)],       # motor único grande
+        "fill_ratio": 0.93,
+        "cockpit": [(0.38, 0.0, 0.08, 0.06)],
+        "engines": [(-0.90, 0.00, 0.12)],   # motor único grande e eficiente
         "hardpoints": [
-            (0.95, 0.0),                          # array de sensor frontal
-            (0.35, 0.48),                         # antena no painel 1
-            (-0.40, 0.48),                        # antena no painel 2
+            (0.95, 0.00),       # ponta do boom (sensor/drill)
+            (0.35, 0.49),       # painel de coleta 1
+            (-0.40, 0.49),      # painel de coleta 2
         ],
         "panel_lines": [
-            ((0.85, 0.0), (-0.75, 0.0)),          # quilha do módulo central
-            # Linhas dos painéis solares (formam padrão de células)
-            ((0.50, 0.20), (0.50, 0.48)),         # divisória vertical painel 1
-            ((0.30, 0.20), (0.30, 0.48)),         # célula do painel 1
-            ((0.20, 0.20), (0.20, 0.48)),
-            ((-0.25, 0.20), (-0.25, 0.50)),       # painel 2
-            ((-0.40, 0.20), (-0.40, 0.50)),
-            ((-0.55, 0.20), (-0.55, 0.50)),
-            # Linha frontal do array de sensores
-            ((0.78, 0.16), (0.78, -0.16)),
+            ((0.92, 0.00), (-0.78, 0.00)),       # quilha — boom + corpo
+            ((0.62, 0.18), (0.62, 0.50)),        # divisória painel 1
+            ((0.38, 0.18), (0.38, 0.50)),        # célula painel 1
+            ((0.18, 0.18), (0.18, 0.50)),
+            ((-0.24, 0.18), (-0.24, 0.50)),      # painel 2
+            ((-0.42, 0.18), (-0.42, 0.50)),
+            ((-0.58, 0.18), (-0.58, 0.50)),
+            ((0.80, 0.15), (0.80, -0.15)),       # frame da base do boom
+        ],
+        "nav_lights": [
+            (0.95, 0.02, "warm"),     # ponta do boom
+            (0.35, 0.49, "accent"),   # painel de coleta 1
+            (-0.40, 0.49, "accent"),  # painel de coleta 2
+            (-0.86, 0.06, "warm"),    # motor
+        ],
+        "accent_stripe": [
+            [(0.80, 0.12), (0.08, 0.16), (-0.68, 0.16)],
         ],
     },
 
     "mule_trader": {
-        # Mule — cargueiro pequeno. Forma de "caixote com nariz", priorizando
-        # volume interno sobre estética. Cockpit pequeno deslocado pra frente,
-        # corpo retangular dominante, dois motores grandes atrás.
-        # Sem asas dignas de nota. Defesa boa, velocidade baixa.
-        # Vibe: van espacial, contêiner motorizado, "trabalhador".
+        # Heavy Mule Hauler — cargueiro pesado. Dois BLOCOS DE CARGA
+        # retangulares dominam o perfil (caixotes modulares empilhados),
+        # cockpit utilitário compacto à frente, par de motores industriais
+        # grandes atrás. Lento, resistente, capacidade máxima.
+        # Vibe: caminhão espacial de longa distância, paga as contas.
         "hull": [
-            (0.75, 0.00),    # nariz curto
-            (0.70, 0.18),
-            (0.62, 0.30),
-            (0.55, 0.40),    # parede do "caixote" começa
-            (0.50, 0.48),
-            (0.20, 0.50),    # topo do caixote (quase plano)
-            (-0.20, 0.50),
-            (-0.45, 0.48),
-            (-0.62, 0.42),
-            (-0.72, 0.30),   # parede traseira do caixote
-            (-0.82, 0.22),
-            (-0.88, 0.10),
-            (-0.88, 0.00),
+            (0.72, 0.00),    # nariz utilitário curto
+            (0.65, 0.16),
+            (0.56, 0.32),    # ombros do casco
+            (0.46, 0.44),    # canto frontal do BLOCO DE CARGA
+            (0.36, 0.55),    # topo do bloco 1 (alto, retangular)
+            (-0.05, 0.57),   # topo quase horizontal do bloco 1
+            (-0.15, 0.57),   # divisória entre blocos
+            (-0.25, 0.57),   # topo do bloco 2
+            (-0.42, 0.55),
+            (-0.55, 0.48),   # canto traseiro do bloco 2
+            (-0.66, 0.40),
+            (-0.76, 0.30),   # arranjo de motores
+            (-0.84, 0.18),
+            (-0.90, 0.06),
+            (-0.90, 0.00),
+        ],
+        "canvas_size": 96,
+        "fill_ratio": 0.90,
+        "cockpit": [(0.60, 0.0, 0.08, 0.06)],
+        "engines": [
+            (-0.90, 0.22, 0.12),   # motor industrial superior grande
+            (-0.90, -0.22, 0.12),  # motor industrial inferior grande
+            (-0.90, 0.00, 0.08),   # motor central auxiliar
+        ],
+        "hardpoints": [
+            (-0.10, 0.54),    # hardpoint defensivo (bloco 1)
+            (-0.40, 0.52),    # hardpoint defensivo (bloco 2)
+        ],
+        "panel_lines": [
+            ((0.65, 0.18), (-0.60, 0.42)),       # linha superior do casco
+            ((0.36, 0.55), (-0.15, 0.55)),       # topo do bloco 1
+            ((-0.15, 0.55), (-0.42, 0.55)),      # topo do bloco 2
+            ((0.36, 0.55), (0.36, -0.55)),       # mamparo frontal dos blocos
+            ((-0.15, 0.57), (-0.15, -0.57)),     # mamparo central
+            ((0.65, 0.00), (-0.76, 0.00)),       # quilha
+        ],
+        "nav_lights": [
+            (0.65, 0.10, "warm"),     # proa
+            (0.15, 0.54, "accent"),   # bloco 1
+            (-0.30, 0.54, "accent"),  # bloco 2
+            (-0.86, 0.14, "warm"),    # motores
+        ],
+        "accent_stripe": [
+            [(0.42, 0.52), (0.15, 0.54), (-0.15, 0.54), (-0.42, 0.52)],
+        ],
+    },
+
+    "stingray_raider": {
+        # Stingray Raider — caça pirata estilo arraia espacial.
+        # Corpo EXTREMAMENTE LARGO: asas espalmadas que terminam em pods
+        # de motor nas pontas. Nariz achatado mas pontudo. A silhueta de
+        # arraia garante baixo perfil de colisão frontal e manobrabilidade
+        # lateral brutal (strafe são os pods laterais).
+        # Vibe: interceptador pirata intimidante, parece um morcego vindo reto.
+        "hull": [
+            (0.65, 0.00),    # nariz achatado pontudo
+            (0.50, 0.12),    # frente alarga rápido
+            (0.28, 0.36),    # corpo explode em asa de arraia
+            (0.05, 0.58),    # pico frontal da asa (muito largo)
+            (-0.18, 0.66),   # extensão máxima da asa
+            (-0.38, 0.64),   # asa começa a fechar em direção ao pod
+            (-0.52, 0.52),   # curvatura para o pod de motor
+            (-0.62, 0.34),   # pod de motor lateral
+            (-0.66, 0.16),   # popa lateral
+            (-0.68, 0.00),   # popa central
+        ],
+        "canvas_size": 88,
+        "fill_ratio": 0.88,
+        "cockpit": [(0.28, 0.0, 0.08, 0.06)],
+        "engines": [
+            (-0.60, 0.28, 0.09),   # motor no pod de asa superior
+            (-0.60, -0.28, 0.09),  # motor no pod de asa inferior
+            (-0.68, 0.00, 0.07),   # motor central
+        ],
+        "hardpoints": [
+            (0.60, 0.00),     # canhão frontal
+            (0.04, 0.54),     # asa (pico)
+            (-0.22, 0.62),    # extremidade da asa
+        ],
+        "panel_lines": [
+            ((0.50, 0.00), (-0.60, 0.00)),     # quilha central
+            ((0.40, 0.10), (0.04, 0.52)),      # nervura da asa frontal
+            ((-0.18, 0.62), (-0.48, 0.50)),    # borda traseira da asa
+            ((0.20, 0.26), (-0.10, 0.48)),     # nervura intermediária
+            ((-0.38, 0.60), (-0.55, 0.38)),    # curvatura para o pod
+        ],
+        "nav_lights": [
+            (0.58, 0.04, "warm"),     # proa
+            (0.04, 0.55, "accent"),   # pico frontal da asa
+            (-0.20, 0.63, "warm"),    # ponta da asa (extensão máxima)
+            (-0.58, 0.30, "accent"),  # pod de motor
+        ],
+        "accent_stripe": [
+            [(0.42, 0.08), (0.04, 0.50), (-0.20, 0.60), (-0.46, 0.50)],
+        ],
+    },
+
+    "terraformador_ligeiro": {
+        # Terraformador Ligeiro — utilitário de serviço da Coalizão Humana.
+        # Corpo em duas seções: módulo de controle frontal estreito +
+        # módulo de equipamento traseiro mais largo (plataforma de trabalho).
+        # Saliências laterais são braços de trabalho / antenas de terraformação,
+        # não asas. Dois motores robustos na traseira.
+        # Vibe: nave de serviço pesado, funcional, sem compromisso com estética.
+        "hull": [
+            (0.75, 0.00),    # nariz utilitário
+            (0.68, 0.14),    # cabine de controle (estreita)
+            (0.60, 0.22),
+            (0.50, 0.28),    # transição para módulo de equipamento
+            (0.38, 0.36),    # módulo começa a alargar
+            (0.20, 0.44),    # braço lateral de trabalho
+            (0.05, 0.50),    # lateral do módulo
+            (-0.15, 0.52),   # plataforma de trabalho (máximo lateral)
+            (-0.30, 0.52),
+            (-0.40, 0.48),
+            (-0.52, 0.42),   # traseira do módulo
+            (-0.62, 0.32),
+            (-0.72, 0.22),
+            (-0.80, 0.12),
+            (-0.85, 0.04),
+            (-0.85, 0.00),
         ],
         "canvas_size": 80,
         "fill_ratio": 0.92,
-        "cockpit": [(0.60, 0.0, 0.08, 0.06)],
+        "cockpit": [(0.58, 0.0, 0.09, 0.07)],
         "engines": [
-            (-0.88, 0.15, 0.10),
-            (-0.88, -0.15, 0.10),
+            (-0.85, 0.14, 0.09),   # motor superior
+            (-0.85, -0.14, 0.09),  # motor inferior
         ],
         "hardpoints": [
-            (-0.15, 0.48),    # hardpoint defensivo dorsal
-            (-0.50, 0.45),    # hardpoint defensivo traseiro
+            (0.14, 0.48),     # braço de trabalho lateral
+            (-0.28, 0.50),    # plataforma posterior
+            (-0.52, 0.40),    # montagem traseira
         ],
         "panel_lines": [
-            ((0.70, 0.20), (-0.65, 0.40)),       # linha superior do caixote
-            ((0.55, 0.45), (-0.55, 0.45)),       # topo do contêiner
-            ((0.20, 0.50), (0.20, -0.50)),       # divisão do contêiner
-            ((-0.20, 0.50), (-0.20, -0.50)),
-            ((0.65, 0.0), (-0.75, 0.0)),         # quilha
+            ((0.65, 0.00), (-0.74, 0.00)),       # quilha
+            ((0.52, 0.24), (-0.44, 0.40)),       # linha superior do casco
+            ((0.38, 0.34), (0.38, -0.34)),       # mamparo frontal do módulo
+            ((-0.15, 0.50), (-0.15, -0.50)),     # mamparo central
+            ((0.05, 0.50), (-0.40, 0.50)),       # topo da plataforma lateral
+        ],
+        "nav_lights": [
+            (0.70, 0.08, "warm"),     # proa
+            (0.10, 0.48, "accent"),   # braço lateral
+            (-0.22, 0.50, "accent"),  # plataforma
+            (-0.80, 0.10, "warm"),    # popa
+        ],
+        "accent_stripe": [
+            [(0.50, 0.24), (0.04, 0.44), (-0.28, 0.50), (-0.54, 0.38)],
         ],
     },
 
@@ -265,6 +390,14 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((0.50, 0.10), (0.10, 0.22)),
             ((0.10, 0.22), (-0.05, 0.52)),    # nervura da asa
             ((-0.30, 0.36), (-0.50, 0.20)),
+        ],
+        "nav_lights": [
+            (0.60, 0.06, "warm"),
+            (-0.05, 0.52, "accent"),   # ponta da asa em diamante
+            (-0.55, 0.13, "warm"),
+        ],
+        "accent_stripe": [
+            [(0.45, 0.12), (0.10, 0.20), (-0.05, 0.50)],
         ],
     },
 
@@ -299,6 +432,15 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((0.40, 0.20), (-0.25, 0.42)),   # diagonal da asa
             ((0.0, 0.0),  (-0.70, 0.0)),     # quilha central
             ((-0.25, 0.42), (-0.25, -0.42)), # mamparo transversal
+        ],
+        "nav_lights": [
+            (0.95, 0.05, "warm"),
+            (0.20, 0.36, "accent"),
+            (-0.45, 0.40, "accent"),
+            (-0.80, 0.11, "warm"),
+        ],
+        "accent_stripe": [
+            [(0.70, 0.08), (0.0, 0.0), (-0.65, 0.0)],
         ],
     },
 
@@ -352,6 +494,16 @@ SHIP_PROFILES: Dict[str, Dict] = {
             ((-0.20, 0.50), (-0.20, -0.50)), # mamparo 3
             ((-0.55, 0.50), (-0.55, -0.50)), # mamparo 4
             ((-0.85, 0.30), (-0.85, -0.30)), # parede da bateria de motores
+        ],
+        "nav_lights": [
+            (0.92, 0.06, "warm"),     # ponte de comando
+            (0.55, 0.48, "accent"),   # bloco de carga 1
+            (-0.20, 0.48, "accent"),  # bloco de carga 2
+            (-0.55, 0.48, "accent"),
+            (-0.92, 0.13, "warm"),    # bateria de motores
+        ],
+        "accent_stripe": [
+            [(0.70, 0.46), (0.20, 0.46), (-0.20, 0.46), (-0.55, 0.46)],
         ],
     },
 }
@@ -452,14 +604,16 @@ class SpriteGenerator:
         inner_full = _mirror_profile(inner_outline)
         inner_px = _profile_to_pixels(inner_full, size, profile["fill_ratio"])
 
-        # ---- Camada 1: sombra (offset diagonal) ----
-        shadow_px = [(x + 2, y + 2) for x, y in outline_px]
-        draw.polygon(shadow_px, fill=(0, 0, 0, 90))
+        # ---- Camada 1: sombra projetada (offset diagonal, leve elevação) ----
+        shadow_px = [(x + 1, y + 2) for x, y in outline_px]
+        draw.polygon(shadow_px, fill=(0, 0, 0, 80))
 
-        # ---- Camada 2: casco escuro (silhueta base) ----
-        draw.polygon(outline_px, fill=palette["primary_dark"])
+        # ---- Camada 2: casco escuro (base) — deslocado pra baixo/direita,
+        #      formando uma borda inferior mais escura (volume) ----
+        base_px = [(x + 1, y + 2) for x, y in outline_px]
+        draw.polygon(base_px, fill=palette["primary_dark"])
 
-        # ---- Camada 3: casco principal (deslocado 1px pra cima = pseudo-3D) ----
+        # ---- Camada 3: casco principal (deslocado pra cima = pseudo-3D) ----
         hull_px = [(x, y - 1) for x, y in outline_px]
         draw.polygon(hull_px, fill=palette["primary"])
 
@@ -470,10 +624,25 @@ class SpriteGenerator:
         # inferior com a cor primary de volta:
         SpriteGenerator._fill_lower_half(draw, inner_px, palette["primary"], size)
 
-        # ---- Camada 5: linhas de painel (dithering em segmentos) ----
+        # ---- Camada 4b: sheen superior mais marcado (núcleo claro no topo) ----
+        sheen_outline = SpriteGenerator._scale_profile(wobble, 0.50)
+        sheen_full = _mirror_profile(sheen_outline)
+        sheen_px = [(x, y - 1) for x, y in
+                    _profile_to_pixels(sheen_full, size, profile["fill_ratio"])]
+        draw.polygon(sheen_px, fill=_lighten(palette["primary_light"], 0.20))
+        SpriteGenerator._fill_lower_half(draw, sheen_px, palette["primary"], size)
+
+        # ---- Camada 5: linhas de painel (com bisel claro para profundidade) ----
+        hl = _lighten(palette["primary"], 0.30)
         SpriteGenerator._draw_panel_lines(
             draw, profile["panel_lines"], size, profile["fill_ratio"],
-            palette["primary_dark"], rng
+            palette["primary_dark"], (hl[0], hl[1], hl[2], 90), rng
+        )
+
+        # ---- Camada 5b: faixa emissiva fina ("tron line") ----
+        SpriteGenerator._draw_accent_stripe(
+            draw, profile.get("accent_stripe", []), size,
+            profile["fill_ratio"], palette["accent"]
         )
 
         # ---- Camada 6: hardpoints (pontos escuros nas asas) ----
@@ -488,14 +657,20 @@ class SpriteGenerator:
             palette["accent"], palette["glow"]
         )
 
-        # ---- Camada 8: motores (glow forte na traseira) ----
+        # ---- Camada 8: motores (bocal + glow forte na traseira) ----
         SpriteGenerator._draw_engines(
             draw, profile["engines"], size, profile["fill_ratio"],
-            palette["accent"], palette["glow"]
+            palette["accent"], palette["glow"], palette["primary_dark"]
         )
 
         # ---- Camada 9: borda escura nítida (contorno final) ----
         SpriteGenerator._draw_outline(draw, outline_px, _darken(palette["primary_dark"], 0.3))
+
+        # ---- Camada 10: luzes de navegação (pontos emissivos no casco) ----
+        SpriteGenerator._draw_nav_lights(
+            draw, profile.get("nav_lights", []), size,
+            profile["fill_ratio"], palette["accent"], WARM_LIGHT
+        )
 
         return img
 
@@ -580,19 +755,28 @@ class SpriteGenerator:
                           size: int,
                           fill_ratio: float,
                           color: RGBA,
+                          hi_color: RGBA,
                           rng: random.Random):
-        """Desenha linhas de painel sutis no casco (ambos hemisférios)."""
+        """
+        Desenha linhas de painel no casco (ambos hemisférios). Cada linha leva
+        um bisel: o sulco escuro (`color`) e, 1px abaixo, um realce claro
+        translúcido (`hi_color`) — dá a leitura de "chapa montada" com volume.
+        """
+        def _seg(pa, pb):
+            # Realce claro 1px abaixo (parece luz batendo na quina da chapa)
+            draw.line([(pa[0], pa[1] + 1), (pb[0], pb[1] + 1)], fill=hi_color, width=1)
+            # Sulco escuro por cima
+            draw.line([pa, pb], fill=color, width=1)
+
         for (a, b) in lines_norm:
             pa = _profile_to_pixels([a], size, fill_ratio)[0]
             pb = _profile_to_pixels([b], size, fill_ratio)[0]
-            draw.line([pa, pb], fill=color, width=1)
+            _seg(pa, pb)
             # Espelhar para o hemisfério oposto
-            a_mirror = (a[0], -a[1])
-            b_mirror = (b[0], -b[1])
             if abs(a[1]) > 0.001 or abs(b[1]) > 0.001:
-                pa2 = _profile_to_pixels([a_mirror], size, fill_ratio)[0]
-                pb2 = _profile_to_pixels([b_mirror], size, fill_ratio)[0]
-                draw.line([pa2, pb2], fill=color, width=1)
+                pa2 = _profile_to_pixels([(a[0], -a[1])], size, fill_ratio)[0]
+                pb2 = _profile_to_pixels([(b[0], -b[1])], size, fill_ratio)[0]
+                _seg(pa2, pb2)
 
     @staticmethod
     def _draw_hardpoints(draw: ImageDraw.ImageDraw,
@@ -647,31 +831,115 @@ class SpriteGenerator:
                       size: int,
                       fill_ratio: float,
                       accent: RGBA,
-                      glow: RGBA):
-        """Desenha os motores como círculos com halo emissivo na traseira."""
+                      glow: RGBA,
+                      primary_dark: RGBA):
+        """
+        Desenha cada motor com PRESENÇA: um bocal (housing escuro em trapézio,
+        abrindo para a traseira -X) e um glow em camadas com núcleo quente
+        quase branco e halo na cor accent.
+
+        A nave aponta para +X, então a traseira/escape fica em -X (esquerda).
+        O glow é puxado levemente para fora (-X) para sentar na borda traseira
+        real do casco, e seu raio é limitado para nunca cortar no canvas.
+        """
         center = size / 2
         scale = (size / 2) * fill_ratio
+        nozzle_dark = _darken(primary_dark, 0.35)
+
         for (ex, ey, er) in engines:
             px = center + ex * scale
             py = center - ey * scale
-            rp = max(1, er * scale)
-            # Halo externo (mais transparente)
-            draw.ellipse(
-                [px - rp - 2, py - rp - 2, px + rp + 2, py + rp + 2],
-                fill=glow,
-            )
-            # Halo médio
-            draw.ellipse(
-                [px - rp - 1, py - rp - 1, px + rp + 1, py + rp + 1],
-                fill=(glow[0], glow[1], glow[2], min(255, glow[3] + 60)),
-            )
-            # Núcleo
-            draw.ellipse(
-                [px - rp, py - rp, px + rp, py + rp],
-                fill=accent,
-            )
-            # Centro branco
-            draw.ellipse(
-                [px - rp / 2, py - rp / 2, px + rp / 2, py + rp / 2],
-                fill=_lighten(accent, 0.7),
-            )
+            # Motor maior e mais presente que antes (~+40%).
+            rp = max(2.0, er * scale * 1.4)
+
+            # ---- Bocal (housing): trapézio escuro apoiado no casco, abrindo
+            #      para a traseira. Fica dentro do casco (não corta). ----
+            depth = rp * 1.4          # quanto o bocal entra no corpo (+X)
+            outer_h = rp * 1.15       # meia-altura na boca (traseira)
+            inner_h = rp * 0.62       # meia-altura no fundo (dentro do corpo)
+            nozzle = [
+                (px, py - outer_h),               # boca superior (na borda)
+                (px + depth, py - inner_h),        # fundo superior (no corpo)
+                (px + depth, py + inner_h),        # fundo inferior
+                (px, py + outer_h),               # boca inferior
+            ]
+            draw.polygon(nozzle, fill=nozzle_dark)
+
+            # ---- Glow centrado na borda traseira; raio ESTRITAMENTE limitado
+            #      ao canvas (a faixa faint nunca toca o limite). ----
+            gx = px
+            edge_room = min(gx, py, size - gx, size - py) - 1.0
+            r_out = max(1.5, min(rp * 1.9, edge_room))
+            k = r_out / (rp * 1.9)    # fator de compressão se faltar espaço
+            r_core = rp * k
+            r_hot = r_core * 0.55
+
+            ga = glow[:3]
+            # Halo externo (suave)
+            draw.ellipse([gx - r_out, py - r_out, gx + r_out, py + r_out],
+                         fill=(ga[0], ga[1], ga[2], max(30, glow[3] - 40)))
+            # Halo médio (mais denso)
+            r_mid = r_out * 0.7
+            draw.ellipse([gx - r_mid, py - r_mid, gx + r_mid, py + r_mid],
+                         fill=(ga[0], ga[1], ga[2], min(255, glow[3] + 70)))
+            # Núcleo na cor accent
+            draw.ellipse([gx - r_core, py - r_core, gx + r_core, py + r_core],
+                         fill=accent)
+            # Centro quente quase branco
+            draw.ellipse([gx - r_hot, py - r_hot, gx + r_hot, py + r_hot],
+                         fill=_lighten(accent, 0.85))
+
+    @staticmethod
+    def _draw_accent_stripe(draw: ImageDraw.ImageDraw,
+                            stripes: List[List[Tuple[float, float]]],
+                            size: int,
+                            fill_ratio: float,
+                            accent: RGBA):
+        """
+        Faixa emissiva fina ("tron line") acompanhando o corpo. Desenhada com
+        um glow translúcido largo + um núcleo fino claro. Espelhada para o
+        hemisfério oposto quando sai do eixo central.
+        """
+        a = accent[:3]
+        for poly in stripes:
+            if len(poly) < 2:
+                continue
+            pts = [_profile_to_pixels([p], size, fill_ratio)[0] for p in poly]
+            draw.line(pts, fill=(a[0], a[1], a[2], 70), width=3, joint="curve")
+            draw.line(pts, fill=(_lighten(accent, 0.45)[:3] + (180,)), width=1)
+            # Espelho
+            if any(abs(y) > 0.001 for _, y in poly):
+                mpts = [_profile_to_pixels([(x, -y)], size, fill_ratio)[0]
+                        for x, y in poly]
+                draw.line(mpts, fill=(a[0], a[1], a[2], 70), width=3, joint="curve")
+                draw.line(mpts, fill=(_lighten(accent, 0.45)[:3] + (180,)), width=1)
+
+    @staticmethod
+    def _draw_nav_lights(draw: ImageDraw.ImageDraw,
+                         lights: List[Tuple[float, float, str]],
+                         size: int,
+                         fill_ratio: float,
+                         accent: RGBA,
+                         warm: RGBA):
+        """
+        Luzes de navegação: pequenos pontos emissivos espalhados pelo casco,
+        na cor accent da facção e numa cor "quente" secundária. Cada luz tem
+        um micro-halo + núcleo claro. Espelhadas para os dois hemisférios.
+        """
+        center = size / 2
+        scale = (size / 2) * fill_ratio
+        for (nx, ny, kind) in lights:
+            col = warm if kind == "warm" else accent
+            positions = [(nx, ny)]
+            if abs(ny) > 0.001:
+                positions.append((nx, -ny))
+            for (sx, sy) in positions:
+                px = center + sx * scale
+                py = center - sy * scale
+                # Micro-halo
+                draw.ellipse([px - 1.8, py - 1.8, px + 1.8, py + 1.8],
+                             fill=(col[0], col[1], col[2], 80))
+                # Núcleo
+                draw.ellipse([px - 0.9, py - 0.9, px + 0.9, py + 0.9], fill=col)
+                # Brilho central
+                draw.point((int(round(px)), int(round(py))), fill=_lighten(col, 0.6))

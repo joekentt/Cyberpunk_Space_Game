@@ -2,6 +2,7 @@ import math
 import random
 from typing import Dict, List, Any, Optional
 from core.event_bus import bus
+from core.balance import balance
 from entities.ship import Ship
 
 class NPCBehavior:
@@ -21,11 +22,14 @@ class NPCManager:
         self.wingmen: List[str] = [] # Lista de ship_ids que são wingmen do jogador
         self.targets: Dict[str, str] = {} # ship_id: target_ship_id
         
-        # Parâmetros de IA
+        # Parâmetros de IA (números de combate vêm de data/balance.json)
         self.thrust_power = 400.0
         self.rotation_speed = 120.0
-        self.attack_range = 400.0
-        self.detection_range = 1000.0
+        self.attack_range = balance.ai["attack_range"]
+        self.detection_range = balance.ai["detection_range"]
+        self.fire_chance_per_tick = balance.ai["fire_chance_per_tick"]
+        self.flee_shield_threshold = balance.ai["flee_shield_threshold"]
+        self.recover_shield_threshold = balance.ai["recover_shield_threshold"]
 
         # Inscrição em eventos
         bus.subscribe("TICK", self.update)
@@ -120,14 +124,14 @@ class NPCManager:
         if dist > self.attack_range * 0.6:
             self._accelerate(ship, dt)
             
-        if random.random() < 0.04: # Tenta disparar (cooldown checado pelo CombatManager)
+        if random.random() < self.fire_chance_per_tick: # cooldown checado pelo CombatManager
             bus.emit("NPC_FIRE", {
                 "shooter_id": ship.id,
                 "weapon_id": "kinetic_small",
                 "target_id": target.id,
             })
-            
-        if ship.current_shields < 20:
+
+        if ship.current_shields < self.flee_shield_threshold:
             self.npc_ships[ship.id] = NPCBehavior.FLEE
 
     def _handle_flee(self, ship: Ship, threat: Optional[Ship], dt: float):
@@ -135,8 +139,8 @@ class NPCManager:
         angle = math.degrees(math.atan2(threat.position[1] - ship.position[1], threat.position[0] - ship.position[0]))
         self._rotate_towards(ship, angle + 180, dt)
         self._accelerate(ship, dt)
-        
-        if ship.current_shields > 50:
+
+        if ship.current_shields > self.recover_shield_threshold:
             self.npc_ships[ship.id] = NPCBehavior.CHASE
 
     def _rotate_towards(self, ship: Ship, target_angle: float, dt: float):

@@ -81,3 +81,59 @@ class Ship:
             max_shields=shields,
             hardpoints=dict(data.get("hardpoints", {})),
         )
+
+    # -- Serialização do ESTADO VIVO (runtime) ---------------------------
+    # Distinto de from_dict: este caminho captura/restaura o estado de uma
+    # nave já viva no universo (posição, velocidade, HP atual, etc.), e não
+    # o template do catálogo ships.json (que usa a chave "base_stats").
+    #
+    # NOTA DE DESIGN: `credits` NÃO é incluído aqui de propósito. Os créditos
+    # têm uma única fonte de verdade no save (campo top-level do payload),
+    # então o serializer os trata separadamente para evitar duplicação.
+
+    def to_save_dict(self) -> Dict[str, Any]:
+        """Serializa o estado VIVO da nave (não o template do catálogo)."""
+        return {
+            "model_id": self.model_id,
+            "name": self.name,
+            "ship_class": self.ship_class,
+            "mass": self.mass,
+            "energy_capacity": self.energy_capacity,
+            "heat_dissipation": self.heat_dissipation,
+            "hardpoints": dict(self.hardpoints),
+            "position": list(self.position),
+            "velocity": list(self.velocity),
+            "rotation": self.rotation,
+            "current_hp": self.current_hp,
+            "max_hp": self.max_hp,
+            "current_shields": self.current_shields,
+            "max_shields": self.max_shields,
+            "current_heat": self.current_heat,
+            "faction": self.faction,
+            "is_player": self.is_player,
+        }
+
+    @classmethod
+    def from_save_dict(cls, data: Dict[str, Any], ship_id: str = "player"):
+        """Reconstrói uma nave a partir do estado vivo serializado."""
+        ship = cls(
+            id=ship_id,
+            name=data["name"],
+            ship_class=data["ship_class"],
+            mass=data["mass"],
+            energy_capacity=data["energy_capacity"],
+            heat_dissipation=data["heat_dissipation"],
+            model_id=data.get("model_id"),
+            position=list(data.get("position", [0.0, 0.0])),
+            velocity=list(data.get("velocity", [0.0, 0.0])),
+            rotation=data.get("rotation", 0.0),
+            current_shields=data.get("current_shields", 100.0),
+            max_shields=data.get("max_shields", 100.0),
+            current_hp=data.get("current_hp", 100.0),
+            max_hp=data.get("max_hp", 100.0),
+            current_heat=data.get("current_heat", 0.0),
+            hardpoints=dict(data.get("hardpoints", {})),
+            is_player=data.get("is_player", False),
+            faction=data.get("faction", "Independent"),
+        )
+        return ship

@@ -43,6 +43,45 @@ python main.py
 SDL_VIDEODRIVER=dummy python main_pygame.py
 ```
 
+## Fluxo de entrada
+
+O jogo **abre no menu principal** (não direto no gameplay):
+
+| Opção | Efeito |
+|---|---|
+| NOVO JOGO | Abre a criação de piloto (digite um nome → começa o jogo) |
+| CARREGAR JOGO | Lista os saves (nome do piloto, créditos, data) e carrega o escolhido. Só aparece se houver saves |
+| CONFIGURAR TECLAS | Remapeamento de teclas (mesmo painel do menu de pausa) |
+| SAIR | Encerra o programa |
+
+## Progressão e objetivo de vitória
+
+O jogo tem um objetivo de longo prazo: **completar 5 missões BOUNTY**. O
+progresso aparece no HUD (`OBJETIVO: N/5 bounties`) durante o jogo.
+
+Ao atingir 5 bounties, o jogo exibe a tela de conclusão com epílogo e duas
+opções:
+
+| Opção | Efeito |
+|---|---|
+| CONTINUAR | Fecha o epílogo e volta ao jogo (pode continuar acumulando créditos/naves) |
+| VOLTAR AO MENU | Volta ao menu principal |
+
+### Tiers de nave
+
+| Tier | Exemplos | Preço | Vendido em |
+|---|---|---|---|
+| T1 — Inicial | Skiff Mk I | grátis | spawn |
+| T1 | Wasp, Albatross, Heavy Mule | 45–95 k cr | Hub Alpha, Hub Beta |
+| **T2** | **Stingray Raider** | **58 k cr** | Hub Beta, Posto Fronteira |
+| **T2** | **Terraformador** | **110 k cr** | Hub Alpha, Posto Fronteira |
+
+O **Posto Fronteira** (facção Piratas, [2600, 400]) fica além das patrulhas
+iniciais e concentra o inventário Tier 2 completo.
+
+Navegação dos menus: `↑↓` navega, `ENTER` confirma, `ESC` volta. Na criação de
+piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
+
 ## Controles (versão Pygame)
 
 > As teclas abaixo são os **padrões**. Todas são remapeáveis pelo jogador
@@ -67,8 +106,12 @@ SDL_VIDEODRIVER=dummy python main_pygame.py
 | Opção | Efeito |
 |---|---|
 | CONTINUAR | Fecha o menu e volta ao jogo |
+| SALVAR JOGO | Grava o estado no slot único |
+| SALVAR E SAIR PARA O MENU | Salva e volta ao menu principal (sem fechar o jogo) |
 | CONFIGURAR TECLAS | Abre a tela de remapeamento de keybinds |
 | SAIR DO JOGO | Encerra o programa |
+
+> Durante o jogo, **F9** recarrega o último save (atalho de debug).
 
 ### Configurar Teclas
 
@@ -110,6 +153,9 @@ Cada teste é executável diretamente sem nenhum framework. A partir da raiz do 
 python tests/test_docking.py        # ciclo de docking, mercado, respawn
 python tests/test_movement.py       # strafe, ré, hierarquia de empuxo
 python tests/test_input_config.py   # keybindings: padrões, persistência, conflitos
+python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
+python tests/test_menu_flow.py      # menu principal, criação de piloto, novo/carregar jogo
+python tests/test_progression_v1.py # progressão e condição de vitória (Ciclo E)
 
 # Outros testes:
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
@@ -143,23 +189,28 @@ Cada sprite tem 9 camadas: sombra, casco escuro, casco principal, highlight supe
 Para adicionar uma nova classe de nave: edite `SHIP_PROFILES` em `sprite_generator.py`.
 Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 
-## Status
+## Status — v1.0
 
 - ✅ Arquitetura modular: EventBus, GameLoop, DataLoader, SaveManager, InputConfig
 - ✅ PlayerManager: throttle (frente/ré estilo Elite), strafe lateral (RCS), pips de engines
 - ✅ EnergyManager (W-S-E), NPCManager (FSM chase/escort/flee/attack)
 - ✅ CombatManager: projéteis, hit detection, dano a escudos/casco
 - ✅ StationManager: docking, mercado de naves, reparo, respawn
-- ✅ Menu de pausa com CONTINUAR / CONFIGURAR TECLAS / SAIR DO JOGO
+- ✅ Menu principal + criação de piloto (nome) + carregar jogo (ver ADR 005)
+- ✅ Menu de pausa: CONTINUAR / SALVAR / SALVAR E SAIR PARA O MENU / TECLAS / SAIR
 - ✅ Keybindings configuráveis pelo jogador com persistência em disco
-- ✅ Geração procedural de universo e sprites (3 classes × 5 facções)
+- ✅ Save/load completo: nave, créditos, missões, reputação, piloto, progressão (ver ADR 003)
+- ✅ Geração procedural de universo e sprites (3 classes × 5 facções, 6 modelos)
+- ✅ **Tiers de nave**: T1 (Skiff, Wasp, Albatross, Heavy Mule) + T2 (Stingray Raider, Terraformador)
+- ✅ **Condição de vitória**: completar 5 bounties → epílogo de fim de jogo (ver ADR 006)
+- ✅ **ProgressionManager**: rastreia objetivo, persiste no save, não reemite ao carregar
 - ✅ Versão Pygame jogável: movimento vetorial, parallax, VFX, HUD, câmera
-- ⚠️ `tests/test_factions.py` desatualizado (API antiga do FactionManager)
+- ⚠️ `tests/test_factions.py` e `tests/test_universe_ai.py` desatualizados (APIs antigas)
 
 ## Próximos passos sugeridos
 
 1. Visualização de dano progressivo nos sprites (DamageStateRenderer)
 2. Sons (módulo `audio_engine`)
-3. Menu principal e tela de criação de piloto
-4. Saves funcionais com persistência completa de estado de mundo
+3. Múltiplos slots de save com gerenciamento (deletar/renomear)
+4. NPCs Tier 2 (Stingrays piratas como spawns de elite)
 5. Mapa estelar / sistema de viagem entre setores

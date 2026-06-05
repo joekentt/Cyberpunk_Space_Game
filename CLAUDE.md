@@ -66,26 +66,48 @@ As naves declaram `hardpoints` no `data/ships.json`
 `Ship` (campo `hardpoints`), via `Ship.from_dict` e `UniverseManager.spawn_ship`.
 
 O `CombatManager` deriva o **multiplicador de dano por disparo** dos hardpoints
-de arma (`CombatManager.hardpoint_firepower`):
+de arma (`CombatManager.firepower_from_hardpoints`). Os pesos e o expoente são
+**data-driven** (`data/balance.json` → seção `firepower`; ver ADR 004):
 
 ```
-firepower = weapon_small*1 + weapon_medium*3 + weapon_large*9   (fallback 1.0)
+raw       = weapon_small*1 + weapon_medium*2 + weapon_large*4
+firepower = raw ** 0.6                                   (fallback 1.0)
 ```
 
-Cada porte vale ~3× o anterior. `fire()` multiplica `proj.damage` por esse
+O expoente `0.6` **achata a curva** (Ciclo B): comprar uma nave melhor é
+perceptível mas não esmagador. `fire()` multiplica `proj.damage` por esse
 valor — vale para player **e** NPCs (ambos passam por `fire`). Naves sem
 hardpoint de arma usam `1.0` (nunca zera o dano nem crasha).
 
-| Nave | Hardpoints | firepower |
-|---|---|---|
-| Skiff | 2S | x2 |
-| Wasp | 4S + 1M | x7 |
-| Mule | 1S + 1M | x4 |
-| Albatross | 1S | x1 |
+| Nave | Hardpoints | raw | firepower |
+|---|---|---|---|
+| Skiff | 2S | 2 | x1.52 |
+| Wasp | 4S + 1M | 6 | x2.93 |
+| Stingray | 3S + 1M | 5 | x2.63 |
+| Mule | 1S + 1M | 3 | x1.93 |
+| Albatross | 1S | 1 | x1.00 |
+| Terraformador | 1S | 1 | x1.00 |
 
-Escopo deliberadamente simples (sem sistema de módulos — ver ADR 001): o
+A melhor nave de combate Tier 1 (Wasp) tem ~1.9× a ofensiva da Skiff (antes era
+3.5×). Escopo deliberadamente simples (sem sistema de módulos — ver ADR 001): o
 armamento é derivado dos hardpoints já declarados, não de Modules equipados.
-O painel do mercado (`StationUI`) mostra a linha "PODER DE FOGO".
+O painel do mercado (`StationUI`) mostra a linha "PODER DE FOGO" usando o mesmo
+helper (`CombatManager.firepower_from_hardpoints`) — fonte única da fórmula.
+
+### Balanceamento data-driven (`data/balance.json`)
+
+Números de combate ficam em `data/balance.json`, carregado por `core/balance.py`
+(singleton `balance`, **tolerante a falhas**: usa `DEFAULTS` se o arquivo faltar
+ou corromper, no espírito do `InputConfig`). Seções:
+
+- `firepower`: pesos por porte + `exponent` + `fallback`.
+- `ai`: `attack_range`, `detection_range`, `fire_chance_per_tick`,
+  `flee_shield_threshold` (=0 → piratas Tier 1 lutam até o fim),
+  `recover_shield_threshold`.
+- `shield`: `base_recharge` (recarga de escudo do player, escala com pips).
+
+Consumidores: `CombatManager` (firepower), `NPCManager` (IA), `EnergyManager`
+(recarga). Tuning de balanceamento não exige editar código.
 
 ---
 
@@ -101,8 +123,11 @@ python tests/test_docking.py
 python tests/test_movement.py
 python tests/test_input_config.py
 python tests/test_combat.py
+python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
 python tests/test_economy_loop.py
 python tests/test_hardpoints.py
+python tests/test_save_load.py
+python tests/test_menu_flow.py        # menu, criação de piloto, novo/carregar (Ciclo D)
 ```
 
 Os testes em `tests/` que cobrem lógica pura (movimento, docking, input config)
@@ -176,16 +201,37 @@ jogador sai da tela (o loop então volta para `"paused"`).
 
 | Estado | Descrição |
 |---|---|
+| `"main_menu"` | Menu principal — **estado inicial**; o mundo ainda não existe |
+| `"pilot_creation"` | Tela de criação de piloto (digita o nome → `start_new_game`) |
+| `"load_menu"` | Lista de saves; ENTER chama `load_game(slot)` |
 | `"playing"` | Gameplay normal; inputs contínuos ativos |
-| `"paused"` | Menu de pausa (CONTINUAR / CONFIGURAR TECLAS / SAIR DO JOGO) |
-| `"keybinds"` | Tela de remapeamento de teclas; todos os eventos vão para `KeybindsUI` |
+| `"paused"` | Menu de pausa (CONTINUAR / SALVAR / SALVAR E SAIR PARA O MENU / TECLAS / SAIR) |
+| `"keybinds"` | Tela de remapeamento; `_keybinds_return` diz se volta a `"paused"` ou `"main_menu"` |
 | `"docked"` | UI da estação aberta; lógica de jogo pausada |
 | `"dying"` | Animação de morte (3 s) antes do respawn |
 
 Regras de transição importantes:
+- O jogo **abre em `"main_menu"`**; o mundo só é construído em `start_new_game`
+  ou `load_game`. `__init__` NÃO spawna player/NPCs/estações.
 - A tecla de pausa (configurável) só abre o menu durante `"playing"`.
 - ESC **nunca fecha o jogo diretamente** — sair exige "SAIR DO JOGO" no menu de pausa.
 - Desacoplar (F no menu da estação) faz transição direta `"docked"` → `"playing"` sem ambiguidade.
+
+### Ciclo de vida do mundo e limpeza do EventBus (armadilha do singleton)
+
+O `bus` (`core/event_bus.py`) é **global e singleton**, e os managers se
+inscrevem no `__init__`. Recriar managers a cada "novo jogo"/"carregar" sem
+limpar **acumularia listeners duplicados** (cada evento dispararia N vezes).
+
+Solução adotada (ver ADR 005): toda (re)construção do mundo passa por
+`SpaceRPGVisual._build_world_systems()`, que **limpa `bus._listeners` antes**
+de recriar os managers e re-inscrever os handlers de `self` (`_subscribe_self`).
+`_teardown_world()` (ao voltar ao menu) também limpa o bus e zera os managers.
+Assim, iniciar novo jogo várias vezes mantém **exatamente um** listener por
+evento (coberto por `tests/test_menu_flow.py`, item 4).
+
+`start_new_game(pilot_name)` constrói o mundo do zero; `load_game(slot)`
+reconstrói e aplica o save por cima (reusa o serializer do Ciclo C).
 
 ### Como adicionar uma nova ação remapeável
 
