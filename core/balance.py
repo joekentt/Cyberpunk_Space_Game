@@ -2,8 +2,8 @@
 balance — números de balanceamento de combate, data-driven.
 
 Carrega `data/balance.json` uma vez (singleton `balance`) e expõe as seções
-`firepower`, `ai`, `shield`, `boost` e `radar`. No mesmo espírito do
-`InputConfig`, é TOLERANTE A
+`firepower`, `ai`, `shield`, `boost`, `radar` e `supercruise`. No mesmo
+espírito do `InputConfig`, é TOLERANTE A
 FALHAS: se o arquivo faltar ou estiver corrompido, usa `DEFAULTS` e o jogo nunca
 quebra. Chaves ausentes no JSON também caem no default por seção (merge raso).
 
@@ -44,6 +44,15 @@ DEFAULTS: Dict[str, Dict[str, Any]] = {
     "radar": {
         "range": 2000.0,
     },
+    "supercruise": {
+        "speed_mult": 40.0,
+        "max_speed": 6000.0,
+        "accel": 4000.0,
+        "spool_up_s": 2.0,
+        "drop_radius": 320.0,
+        "exit_offset": 260.0,
+        "min_entry_distance": 360.0,
+    },
 }
 
 _DEFAULT_PATH = os.path.join(
@@ -61,6 +70,7 @@ class Balance:
         self.shield: Dict[str, Any] = {}
         self.boost: Dict[str, Any] = {}
         self.radar: Dict[str, Any] = {}
+        self.supercruise: Dict[str, Any] = {}
         self.load()
 
     def load(self):

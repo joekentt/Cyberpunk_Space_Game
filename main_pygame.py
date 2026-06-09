@@ -16,6 +16,7 @@ import os
 import sys
 import json
 import math
+import random
 import pygame
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -41,6 +42,7 @@ from visual_engine.vfx_generator import VFXGenerator, render_projectile
 from visual_engine.camera import Camera, ParallaxBackground
 from visual_engine.hud import HUD
 from visual_engine.radar import Radar
+from systems.supercruise_manager import SupercruiseManager
 from visual_engine.station_ui import StationUI
 from visual_engine.keybinds_ui import KeybindsUI
 from visual_engine.main_menu_ui import MainMenuUI
@@ -124,6 +126,11 @@ class SpaceRPGVisual:
         self.hud = HUD(WIDTH, HEIGHT)
         self.radar = Radar(WIDTH, HEIGHT, world_range=balance.radar["range"])
         self._radar_on = True
+        # Supercruise (ADR 010): manager puro + estado de spool-up.
+        self.supercruise_mgr = SupercruiseManager(balance.supercruise)
+        self._sc_spool = 0.0     # >0 = carregando para entrar (em "playing")
+        self._sc_last = None     # último dict retornado por step() (para o HUD)
+        self._sc_streak_seed = 0 # semente das estrelas alongadas do túnel
         self._station_sprites = {}
 
         # UI overlay
@@ -198,6 +205,8 @@ class SpaceRPGVisual:
     def _teardown_world(self):
         """Descarta o mundo atual com segurança ao voltar para o menu."""
         bus._listeners.clear()
+        self._sc_spool = 0.0
+        self._sc_last = None
         self.universe = None
         self.npc_mgr = None
         self.combat_mgr = None
@@ -587,6 +596,14 @@ class SpaceRPGVisual:
                     self._activate_pause_option(opts[self._pause_selection][1])
                 continue
 
+            # Supercruise: a tecla de toggle, ESC ou pausa dão DROP imediato
+            # (ESC nunca fecha o jogo nem abre pausa aqui — só sai do supercruise).
+            if self.game_state == "supercruise":
+                if ev.key in (self._key("supercruise_toggle"),
+                              self._key("pause"), pygame.K_ESCAPE):
+                    self._drop_supercruise()
+                continue
+
             if self.game_state != "playing":
                 continue
 
@@ -597,6 +614,8 @@ class SpaceRPGVisual:
 
             if ev.key == self._key("dock_toggle"):
                 bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
+            elif ev.key == self._key("supercruise_toggle"):
+                self._toggle_supercruise_spool()
             elif ev.key == self._key("toggle_radar"):
                 self._radar_on = not self._radar_on
             elif ev.key == pygame.K_1:
@@ -605,6 +624,16 @@ class SpaceRPGVisual:
                 bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "shields"})
             elif ev.key == pygame.K_3:
                 bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "engines"})
+
+        # Em supercruise, só a rotação está ativa (mira a proa); o resto do
+        # voo é governado pelo SupercruiseManager. O drop é discreto (acima).
+        if self.game_state == "supercruise":
+            keys = pygame.key.get_pressed()
+            if keys[self._key("rotate_left")]:
+                bus.emit("PLAYER_INPUT", {"action": "rotate", "value": -1.0})
+            if keys[self._key("rotate_right")]:
+                bus.emit("PLAYER_INPUT", {"action": "rotate", "value": 1.0})
+            return
 
         # Inputs contínuos só durante "playing"
         if self.game_state != "playing":
@@ -676,6 +705,58 @@ class SpaceRPGVisual:
                 jet = (right[0], right[1])
             jet_dir = math.degrees(math.atan2(jet[1], jet[0]))
             self.vfx.create_rcs_puff(origin, jet_dir, color, strength="strafe")
+
+    # -------------------------------------------------------------- supercruise
+
+    def _toggle_supercruise_spool(self):
+        """
+        Tecla de supercruise em "playing": inicia o spool-up se puder entrar,
+        ou cancela um spool em andamento (jogador desistiu). Não entra colado
+        a massa nem atracado/aproximando.
+        """
+        if self._sc_spool > 0:
+            self._sc_spool = 0.0   # cancela
+            return
+        if self.station_mgr.docking_state in ("docked", "approach"):
+            return
+        player = self.universe.entities.get(self.player_id)
+        if not player:
+            return
+        if self.supercruise_mgr.can_enter(player.position, self.station_mgr.get_all()):
+            self._sc_spool = self.supercruise_mgr.spool_up_s
+
+    def _tick_supercruise_spool(self, dt, player):
+        """Conta o spool-up durante "playing"; ao zerar, entra em supercruise."""
+        if self._sc_spool <= 0:
+            return
+        # Aborta se uma massa chegou perto demais durante o spool.
+        if not self.supercruise_mgr.can_enter(player.position, self.station_mgr.get_all()):
+            self._sc_spool = 0.0
+            return
+        self._sc_spool -= dt
+        if self._sc_spool <= 0:
+            self._sc_spool = 0.0
+            self._sc_last = None
+            self.game_state = "supercruise"
+            bus.emit("SUPERCRUISE_ENTER", {})
+
+    def _drop_supercruise(self, drop_pos=None):
+        """
+        Sai do supercruise: reposiciona o player (drop automático) ou dropa no
+        local atual (saída manual), atenua a velocidade e volta a "playing".
+        """
+        player = self.universe.entities.get(self.player_id)
+        if player:
+            if drop_pos is not None:
+                player.position = [float(drop_pos[0]), float(drop_pos[1])]
+            # Atenua a velocidade de viagem para um arrasto controlável.
+            player.velocity = [player.velocity[0] * 0.02, player.velocity[1] * 0.02]
+        self._sc_last = None
+        self.game_state = "playing"
+        bus.emit("SUPERCRUISE_DROP", {
+            "pos": list(player.position) if player else None,
+            "auto": drop_pos is not None,
+        })
 
     # -------------------------------------------------------------- bus listeners
 
@@ -866,6 +947,24 @@ class SpaceRPGVisual:
                 if player:
                     self.camera.follow(player.position, dt)
                     self.station_mgr.update(dt, player.position)
+                    self._tick_supercruise_spool(dt, player)
+
+            elif self.game_state == "supercruise":
+                player = self.universe.entities.get(self.player_id)
+                if player:
+                    # Aplica só a rotação acumulada (mira a proa); o resto da
+                    # física é do SupercruiseManager. Universo "congelado":
+                    # NPCs/combate/docking NÃO rodam contra o player.
+                    if self.player_mgr._input_state["rotate"] != 0.0:
+                        self.player_mgr.rotate(self.player_mgr._input_state["rotate"], dt)
+                        self.player_mgr._input_state["rotate"] = 0.0
+                    res = self.supercruise_mgr.step(
+                        player, self.station_mgr.get_all(), dt)
+                    self._sc_last = res
+                    self.camera.follow(player.position, dt)
+                    if res["drop"]:
+                        self._drop_supercruise(res["drop_pos"])
+                self.vfx.update(dt)
 
             elif self.game_state == "endgame":
                 self.vfx.update(dt)
@@ -958,6 +1057,10 @@ class SpaceRPGVisual:
                     self.station_mgr.get_all(),
                 )
 
+        # Aviso de carga (spool-up) durante "playing"
+        if self.game_state == "playing" and self._sc_spool > 0:
+            self._draw_supercruise_spool()
+
         if self.game_state == "paused":
             self._draw_pause_menu()
         elif self.game_state == "keybinds":
@@ -968,6 +1071,8 @@ class SpaceRPGVisual:
             self._draw_dying_overlay()
         elif self.game_state == "endgame":
             self.endgame_ui.draw(self.screen)
+        elif self.game_state == "supercruise":
+            self._draw_supercruise_overlay(player)
 
         self._draw_controls()
         self._draw_fps()
@@ -1117,6 +1222,82 @@ class SpaceRPGVisual:
             bg.fill((0, 0, 0, 180))
             self.screen.blit(bg, (rect.x - 12, rect.y - 6))
             self.screen.blit(text, rect)
+
+    def _draw_supercruise_spool(self):
+        """Aviso de carga do supercruise (durante "playing")."""
+        frac = 1.0 - max(0.0, self._sc_spool / self.supercruise_mgr.spool_up_s)
+        text = self.big_font.render("CARREGANDO SUPERCRUISE...", True, (120, 200, 255))
+        rect = text.get_rect(center=(WIDTH // 2, HEIGHT - 130))
+        bg = pygame.Surface((rect.w + 24, rect.h + 12), pygame.SRCALPHA)
+        bg.fill((0, 0, 0, 180))
+        self.screen.blit(bg, (rect.x - 12, rect.y - 6))
+        self.screen.blit(text, rect)
+        # Barra de progresso
+        bw, bh = 260, 8
+        bx, by = WIDTH // 2 - bw // 2, rect.bottom + 8
+        pygame.draw.rect(self.screen, (40, 60, 80), (bx, by, bw, bh))
+        pygame.draw.rect(self.screen, (120, 200, 255), (bx, by, int(bw * frac), bh))
+        hint = self.label_font.render(
+            f"[{self.input_cfg.get('supercruise_toggle').upper()}] cancela",
+            True, (120, 140, 160))
+        self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, by + 22)))
+
+    def _draw_supercruise_overlay(self, player):
+        """Túnel (estrelas alongadas) + HUD de viagem durante o supercruise."""
+        cx, cy = WIDTH // 2, HEIGHT // 2
+        # Túnel: linhas radiais a partir do centro, densidade pela velocidade.
+        speed = (self._sc_last or {}).get("speed", 0.0)
+        intensity = min(1.0, speed / max(1.0, self.supercruise_mgr.max_speed))
+        n = int(18 + 30 * intensity)
+        rnd = random.Random(self._sc_streak_seed)
+        for _ in range(n):
+            ang = rnd.uniform(0, 2 * math.pi)
+            r0 = rnd.uniform(40, 140)
+            length = 30 + 120 * intensity
+            x0 = cx + math.cos(ang) * r0
+            y0 = cy + math.sin(ang) * r0
+            x1 = cx + math.cos(ang) * (r0 + length)
+            y1 = cy + math.sin(ang) * (r0 + length)
+            shade = int(90 + 120 * intensity)
+            pygame.draw.line(self.screen, (shade, shade, 255), (x0, y0), (x1, y1), 1)
+        self._sc_streak_seed += 1
+
+        # Tinta azulada nas bordas
+        edge = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        edge.fill((20, 40, 90, 30))
+        self.screen.blit(edge, (0, 0))
+
+        # HUD de viagem
+        res = self._sc_last or {}
+        dist = res.get("distance", 0.0)
+        nearest = res.get("nearest", None)
+        spd = res.get("speed", 0.0)
+        eta = dist / spd if spd > 1.0 else float("inf")
+
+        lines = [
+            ("SUPERCRUISE", (120, 220, 255)),
+            (f"VELOCIDADE: {spd:6.0f} u/s", (200, 230, 255)),
+        ]
+        if nearest is not None:
+            name = getattr(nearest, "name", "alvo")
+            lines.append((f"ALVO: {name}", (200, 230, 255)))
+            lines.append((f"DISTÂNCIA: {dist:7.0f} u", (200, 230, 255)))
+            eta_txt = f"{eta:4.1f}s" if eta != float("inf") else "--"
+            lines.append((f"DROP EM: {eta_txt}", (255, 220, 120)))
+            if dist <= self.supercruise_mgr.drop_radius * 1.8:
+                lines.append(("DROP IMINENTE", (255, 120, 120)))
+
+        y = 60
+        for txt, color in lines:
+            surf = self.big_font.render(txt, True, color) if txt in (
+                "SUPERCRUISE", "DROP IMINENTE") else self.info_font.render(txt, True, color)
+            self.screen.blit(surf, (WIDTH // 2 - surf.get_width() // 2, y))
+            y += surf.get_height() + 4
+
+        hint = self.label_font.render(
+            f"[{self.input_cfg.get('supercruise_toggle').upper()}] ou ESC = sair",
+            True, (120, 160, 200))
+        self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
     def _draw_dying_overlay(self):
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)

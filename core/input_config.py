@@ -31,6 +31,7 @@ class InputConfig:
         "shoot": "space",
         "dock_toggle": "f",
         "toggle_radar": "r",
+        "supercruise_toggle": "j",
         "pause": "escape",
     }
 
@@ -46,6 +47,7 @@ class InputConfig:
         "shoot": "Disparar",
         "dock_toggle": "Acoplar / Desacoplar",
         "toggle_radar": "Radar (liga/desliga)",
+        "supercruise_toggle": "Supercruise (entrar/sair)",
         "pause": "Pausar",
     }
 

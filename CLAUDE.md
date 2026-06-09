@@ -134,10 +134,12 @@ ou corromper, no espírito do `InputConfig`). Seções:
 - `boost`: ver seção **Boost** acima (`force_mult`, `duration`, `cost`,
   `max_charge`, `recharge_per_s`, `cooldown`).
 - `radar`: `range` (alcance do radar em unidades de mundo — ver seção **Radar**).
+- `supercruise`: `speed_mult`, `max_speed`, `accel`, `spool_up_s`, `drop_radius`,
+  `exit_offset`, `min_entry_distance` (ver seção **Supercruise** e ADR 010).
 
 Consumidores: `CombatManager` (firepower), `NPCManager` (IA), `EnergyManager`
-(recarga), `PlayerManager` (boost), `Radar` (range). Tuning de balanceamento não
-exige editar código.
+(recarga), `PlayerManager` (boost), `Radar` (range), `SupercruiseManager`
+(viagem). Tuning de balanceamento não exige editar código.
 
 ---
 
@@ -179,6 +181,36 @@ Para não duplicar a tabela de hostilidade numa terceira cópia, o set canônico
 
 ---
 
+## Supercruise (viagem rápida intra-setor — ver ADR 010)
+
+Modo de voo de altíssima velocidade (~40× o cruzeiro) com drop automático ao se
+aproximar de massa. É um `game_state` próprio (`"supercruise"`), **não** um
+modificador do voo normal.
+
+- `systems/supercruise_manager.py` — **lógica pura, sem pygame nem game_state**.
+  `step(player, masses, dt)` acelera o player ao longo da proa até `max_speed`,
+  integra a posição (`player.apply_physics`) e devolve um dict
+  `{"drop", "drop_pos", "nearest", "distance", "speed"}`. `can_enter(pos, masses)`
+  bloqueia entrada colado a massa. O manager **só faz contas**; quem decide as
+  transições é o `main_pygame`.
+- **Universo congelado exceto o player:** no branch `"supercruise"` do loop,
+  `universe.update`/`npc_mgr`/`combat_mgr`/`station_mgr` **não** rodam. Logo,
+  **sem dano e sem combate** durante a viagem. Só a rotação fica ativa (mira a
+  proa) — aplicada via `player_mgr.rotate` direto, sem a física normal.
+- **Entrada:** `supercruise_toggle` (padrão `J`) em `"playing"` inicia um
+  spool-up (`_sc_spool`, `balance.supercruise["spool_up_s"]`), cancelável
+  (apertar de novo). Ao zerar, `game_state = "supercruise"`.
+- **Drop:** automático quando uma massa entra em `drop_radius` (reposiciona o
+  player a `exit_offset` da massa, **fora do `docking_radius`** — não auto-acopla);
+  ou manual via `J`/ESC. Emite `SUPERCRUISE_ENTER` / `SUPERCRUISE_DROP`.
+- **Segurança numérica:** `exit_offset` (260) > maior `docking_radius` (180) e
+  `drop_radius` (320) > `docking_radius` + margem. Coberto por
+  `tests/test_supercruise.py` (caso 5: drop nunca dentro do raio de docking).
+- O `SupercruiseManager` é **agnóstico a "setor"** — pronto para virar o
+  transporte intra-setor natural quando o Plano 06 (multi-setor) chegar.
+
+---
+
 ## Executar e testar
 
 ```bash
@@ -191,6 +223,7 @@ python tests/test_docking.py
 python tests/test_movement.py
 python tests/test_boost.py             # boost de propulsor (ADR 007)
 python tests/test_radar.py             # radar: projeção/clamp + relações (ADR 008)
+python tests/test_supercruise.py       # supercruise: entrada/aceleração/drop seguro (ADR 010)
 python tests/test_input_config.py
 python tests/test_combat.py
 python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
@@ -216,8 +249,8 @@ O mapeamento ação → tecla é configurável pelo jogador e persistido em disc
   `"left ctrl"` etc.
 - **Ações** (em `DEFAULTS`, nesta ordem): `thrust_forward`, `thrust_back`,
   `rotate_left`, `rotate_right`, `strafe_left`, `strafe_right`, `boost`,
-  `shoot`, `dock_toggle`, `toggle_radar`, `pause`.
-- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, R, ESC.
+  `shoot`, `dock_toggle`, `toggle_radar`, `supercruise_toggle`, `pause`.
+- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, R, J, ESC.
 - API principal: `get(action)`, `set(action, key_name)`, `conflicts()`
   (retorna `{tecla: [ações]}` para teclas usadas por mais de uma ação),
   `reset_to_defaults()`, `load()`, `save()`.
@@ -244,6 +277,7 @@ usuário). Exemplo:
     "shoot": "space",
     "dock_toggle": "f",
     "toggle_radar": "r",
+    "supercruise_toggle": "j",
     "pause": "escape"
 }
 ```
@@ -281,6 +315,7 @@ jogador sai da tela (o loop então volta para `"paused"`).
 | `"keybinds"` | Tela de remapeamento; `_keybinds_return` diz se volta a `"paused"` ou `"main_menu"` |
 | `"docked"` | UI da estação aberta; lógica de jogo pausada |
 | `"dying"` | Animação de morte (3 s) antes do respawn |
+| `"supercruise"` | Viagem rápida intra-setor; universo congelado exceto o player (ver ADR 010) |
 
 Regras de transição importantes:
 - O jogo **abre em `"main_menu"`**; o mundo só é construído em `start_new_game`
@@ -288,6 +323,10 @@ Regras de transição importantes:
 - A tecla de pausa (configurável) só abre o menu durante `"playing"`.
 - ESC **nunca fecha o jogo diretamente** — sair exige "SAIR DO JOGO" no menu de pausa.
 - Desacoplar (F no menu da estação) faz transição direta `"docked"` → `"playing"` sem ambiguidade.
+- **Supercruise:** `"playing"` → spool-up (`_sc_spool > 0`, ainda em `"playing"`)
+  → `"supercruise"`. Drop (automático por massa ou manual via `J`/ESC) volta a
+  `"playing"`. ESC em supercruise **não** abre pausa — só dá drop. Não se entra
+  perto de massa nem atracado/aproximando.
 
 ### Ciclo de vida do mundo e limpeza do EventBus (armadilha do singleton)
 

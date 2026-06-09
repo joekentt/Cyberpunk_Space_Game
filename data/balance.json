@@ -37,5 +37,16 @@
     "radar": {
         "_comment": "Radar de proximidade (visual_engine/radar.py). range = alcance em unidades de mundo; blips além disso grudam na borda do disco. NÃO é o alcance de detecção da IA (ver ai.detection_range) — é só ajuda de UX.",
         "range": 2000.0
+    },
+
+    "supercruise": {
+        "_comment": "Viagem rápida intra-setor (ADR 010). accel acelera o player ao longo da proa até max_speed; spool_up_s é o tempo de carga ao entrar; drop_radius força saída perto de massa (deve ser > maior docking_radius + folga); exit_offset posiciona a nave longe o suficiente para não acoplar sozinha (deve ser > docking_radius); min_entry_distance impede engatar colado a massa.",
+        "speed_mult": 40.0,
+        "max_speed": 6000.0,
+        "accel": 4000.0,
+        "spool_up_s": 2.0,
+        "drop_radius": 320.0,
+        "exit_offset": 260.0,
+        "min_entry_distance": 360.0
     }
 }

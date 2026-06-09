@@ -97,6 +97,7 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 | ESPAÇO | Disparar arma primária |
 | **F** | **Acoplar em estação (dentro do raio) / Desacoplar** |
 | **R** | **Ligar / desligar o radar de proximidade** |
+| **J** | **Supercruise: entrar (com carga) / sair (drop)** |
 | 1 / 2 / 3 | Realocar 1 pip para Weapons / Shields / Engines |
 | ESC | Abrir menu de pausa |
 
@@ -112,6 +113,13 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 > verde (estação). Alvos fora do alcance grudam na borda, mais apagados. O
 > alcance do radar é só ajuda de UX: ver um blip **não** significa que aquela
 > nave já te detectou.
+>
+> **Supercruise:** viagem rápida intra-setor (~40× a velocidade de cruzeiro).
+> Aperte **J** longe de estações para carregar (spool-up ~2 s; J de novo
+> cancela) e entrar. Durante o supercruise o combate fica suspenso (sem dano;
+> NPCs não engajam) e o HUD mostra distância e tempo até o drop. Ao se aproximar
+> de uma estação, o jogo **dropa automaticamente** fora do raio de docking (não
+> acopla sozinho). **J** ou **ESC** dão drop manual a qualquer momento.
 
 ### Menu de pausa (ESC)
 
@@ -172,6 +180,7 @@ python tests/test_progression_v1.py # progressão e condição de vitória (Cicl
 python tests/test_factions.py       # reputação multi-eixo, market/dock, flags, persistência
 python tests/test_universe_ai.py    # FSM da IA: IDLE→CHASE→ATTACK→FLEE
 python tests/test_radar.py          # radar: projeção mundo→disco, clamp, relação de facção
+python tests/test_supercruise.py    # supercruise: entrada, aceleração, drop seguro (ADR 010)
 
 # Outros testes:
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
