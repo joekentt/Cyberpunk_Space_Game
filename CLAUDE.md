@@ -48,6 +48,30 @@ o ponto morto (velocidade zero), **engata a ré**.
 `strafe()` calcula o vetor perpendicular ao bico (`right = (-fy, fx)`) e aplica
 o empuxo lateral **sem alterar `ship.rotation`**. Q = esquerda, E = direita.
 
+### Boost (SHIFT)
+
+Empuxo frontal de pico ativado por `{"action": "boost"}` via EventBus. Números
+em `data/balance.json` → seção `boost` (ver ADR 007):
+
+| Parâmetro | Valor padrão | Descrição |
+|---|---|---|
+| `force_mult` | 2.6× | Multiplicador do `thrust_power` durante o pico |
+| `duration` | 0.8 s | Duração do empuxo de boost |
+| `cost` | 1.0 | Carga consumida por ativação |
+| `max_charge` | 3.0 | Capacidade total do capacitor |
+| `recharge_per_s` | 0.5/s | Recarga (escala com `engine_mod`) |
+| `cooldown` | 0.4 s | Espera adicional após o fim do pico |
+
+`PlayerManager.try_boost()` ativa se `_boost_cd <= 0`, `_boost_timer <= 0` e
+`boost_charge >= cost`. Dentro de `update()`, se `_boost_timer > 0`, aplica
+`_apply_boost_thrust(dt)` **independentemente de o jogador segurar W** — dá
+a sensação de "kick". Só afeta o eixo frontal; ré e strafe inalterados.
+
+O estado do capacitor é espelhado em `ship.boost_charge / ship.boost_max` para
+a HUD (`hud.py`). Ao recriar a Ship (`_on_ship_purchased`, `_respawn`),
+`PlayerManager.ship` é reapontado e o espelho é re-sincronizado no próximo
+`update()` (sem reset manual necessário).
+
 ### Drag (atrito de jogabilidade)
 
 ```python
@@ -56,6 +80,8 @@ velocity *= drag ** (dt * 60)   # ~17 % de perda por segundo a 60 fps
 ```
 
 Velocidade de cruzeiro resultante (Skiff, massa 120): ~150 unidades/s.
+Com boost, velocidade de pico temporária acima desse teto; o drag traz de volta
+naturalmente em poucos segundos (sem clamp rígido).
 
 ---
 
@@ -145,9 +171,9 @@ O mapeamento ação → tecla é configurável pelo jogador e persistido em disc
   formato do pygame (`pygame.key.name(code)`): `"w"`, `"space"`, `"escape"`,
   `"left ctrl"` etc.
 - **Ações** (em `DEFAULTS`, nesta ordem): `thrust_forward`, `thrust_back`,
-  `rotate_left`, `rotate_right`, `strafe_left`, `strafe_right`, `shoot`,
-  `dock_toggle`, `pause`.
-- **Padrões:** W, S, A, D, Q, E, ESPAÇO, F, ESC.
+  `rotate_left`, `rotate_right`, `strafe_left`, `strafe_right`, `boost`,
+  `shoot`, `dock_toggle`, `pause`.
+- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, ESC.
 - API principal: `get(action)`, `set(action, key_name)`, `conflicts()`
   (retorna `{tecla: [ações]}` para teclas usadas por mais de uma ação),
   `reset_to_defaults()`, `load()`, `save()`.

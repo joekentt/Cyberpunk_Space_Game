@@ -34,6 +34,14 @@ class HUD:
         pips_text = f"PIPS: W[{player_ship.pips['weapons']}] S[{player_ship.pips['shields']}] E[{player_ship.pips['engines']}]"
         self._draw_text(screen, pips_text, margin, margin + 90)
 
+        # 5. Capacitor de Boost
+        bc = getattr(player_ship, 'boost_charge', 0.0)
+        bm = getattr(player_ship, 'boost_max', 1.0)
+        boost_pct = bc / bm if bm > 0 else 0.0
+        boost_color = (80, 255, 220) if boost_pct >= 1.0 else (60, 180, 200)
+        self._draw_bar(screen, margin, margin + 120, bar_width, bar_height,
+                       boost_pct, boost_color, "BOOST")
+
         # 5. Velocidade e Créditos (Canto inferior esquerdo)
         speed = (player_ship.velocity[0]**2 + player_ship.velocity[1]**2)**0.5
         self._draw_text(screen, f"SPEED: {speed:.1f} m/s", margin, self.height - 40)

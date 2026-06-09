@@ -32,6 +32,14 @@ DEFAULTS: Dict[str, Dict[str, Any]] = {
     "shield": {
         "base_recharge": 6.0,
     },
+    "boost": {
+        "force_mult": 2.6,
+        "duration": 0.8,
+        "cost": 1.0,
+        "max_charge": 3.0,
+        "recharge_per_s": 0.5,
+        "cooldown": 0.4,
+    },
 }
 
 _DEFAULT_PATH = os.path.join(
@@ -47,6 +55,7 @@ class Balance:
         self.firepower: Dict[str, Any] = {}
         self.ai: Dict[str, Any] = {}
         self.shield: Dict[str, Any] = {}
+        self.boost: Dict[str, Any] = {}
         self.load()
 
     def load(self):

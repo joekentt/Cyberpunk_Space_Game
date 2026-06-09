@@ -22,5 +22,15 @@
     "shield": {
         "_comment": "Recarga de escudo do player (EnergyManager). Escala com pips de shields (pips/2.0).",
         "base_recharge": 6.0
+    },
+
+    "boost": {
+        "_comment": "Boost de propulsor (PlayerManager). force_mult escala o empuxo frontal durante o boost; cost consome do capacitor; recharge_per_s recarrega por segundo e escala com pips de engines; duration é o tempo de pico; cooldown bloqueia re-ativação.",
+        "force_mult": 2.6,
+        "duration": 0.8,
+        "cost": 1.0,
+        "max_charge": 3.0,
+        "recharge_per_s": 0.5,
+        "cooldown": 0.4
     }
 }

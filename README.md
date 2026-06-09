@@ -93,6 +93,7 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 | S | Frear e engatar ré (diminuir throttle; ponto morto no centro) |
 | A / D | Girar o bico esquerda / direita |
 | Q / E | Strafe lateral esquerda / direita (thrusters RCS, sem girar o bico) |
+| **SHIFT** | **Boost de propulsor (pico de aceleração ~2.6× por 0.8 s; consome capacitor)** |
 | ESPAÇO | Disparar arma primária |
 | **F** | **Acoplar em estação (dentro do raio) / Desacoplar** |
 | 1 / 2 / 3 | Realocar 1 pip para Weapons / Shields / Engines |
@@ -100,6 +101,10 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 
 > **Empuxo:** motor principal (frente) é o mais forte; ré ~55% e strafe ~45%
 > da força frontal. Toda a potência escala com os pips de **Engines**.
+>
+> **Boost:** empuxo frontal ~2.6× por 0.8 s. Consome 1 carga do capacitor (máx 3).
+> O capacitor recarrega ~0.5/s (escala com pips de **Engines**). Cooldown 0.4 s
+> após o pico. Não afeta ré nem strafe. Remapeável como todas as teclas.
 
 ### Menu de pausa (ESC)
 

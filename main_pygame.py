@@ -630,6 +630,13 @@ class SpaceRPGVisual:
             bus.emit("PLAYER_INPUT", {"action": "strafe", "value": 1.0})
             if player:
                 self._rcs_vfx(player, "strafe", direction=1.0)
+        if keys[self._key("boost")]:
+            bus.emit("PLAYER_INPUT", {"action": "boost"})
+        if self.player_mgr and self.player_mgr._boost_timer > 0 and player:
+            palette = self.palette_mgr.get_palette(player.faction)
+            color = tuple(min(255, int(c * 1.4)) for c in palette["accent"][:3])
+            self.vfx.create_engine_trail(tuple(player.position), player.rotation, color)
+            self.vfx.create_engine_trail(tuple(player.position), player.rotation, color)
         if keys[self._key("shoot")]:
             bus.emit("PLAYER_INPUT", {"action": "shoot", "value": 1.0})
 
