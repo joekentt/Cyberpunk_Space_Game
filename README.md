@@ -156,6 +156,8 @@ python tests/test_input_config.py   # keybindings: padrões, persistência, conf
 python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
 python tests/test_menu_flow.py      # menu principal, criação de piloto, novo/carregar jogo
 python tests/test_progression_v1.py # progressão e condição de vitória (Ciclo E)
+python tests/test_factions.py       # reputação multi-eixo, market/dock, flags, persistência
+python tests/test_universe_ai.py    # FSM da IA: IDLE→CHASE→ATTACK→FLEE
 
 # Outros testes:
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
@@ -205,7 +207,7 @@ Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 - ✅ **Condição de vitória**: completar 5 bounties → epílogo de fim de jogo (ver ADR 006)
 - ✅ **ProgressionManager**: rastreia objetivo, persiste no save, não reemite ao carregar
 - ✅ Versão Pygame jogável: movimento vetorial, parallax, VFX, HUD, câmera
-- ⚠️ `tests/test_factions.py` e `tests/test_universe_ai.py` desatualizados (APIs antigas)
+- ✅ Suíte de testes headless cobrindo facções multi-eixo e FSM da IA (atualizados)
 
 ## Próximos passos sugeridos
 
