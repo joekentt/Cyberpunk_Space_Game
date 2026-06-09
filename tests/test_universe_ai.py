@@ -1,68 +1,105 @@
+"""
+Teste de Universo e IA de NPC (API atual).
+
+Exercita o fluxo VIVO do NPCManager: NPCManager(universe) + register_npc(),
+dirigido por chamadas diretas a update(dt) (espelha test_combat.py e evita que
+asserts sejam engolidos pelo try/except do EventBus.emit).
+
+Cobre:
+  1. Detecção: NPC hostil (Pirates) em IDLE detecta o player (United Humans)
+     dentro do detection_range e entra em CHASE, perseguindo-o (distância cai).
+  2. Aproximação até ATTACK quando entra no attack_range.
+  3. FLEE: com flee_shield_threshold elevado e escudos baixos, o NPC foge
+     (distância volta a crescer).
+
+Headless, sem pygame. Roda direto: python tests/test_universe_ai.py
+"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.data_loader import DataLoader
-from entities.ship import Ship
-from systems.universe_manager import UniverseManager
-from systems.npc_manager import NPCManager
 from core.event_bus import bus
-import time
+from systems.universe_manager import UniverseManager
+from systems.npc_manager import NPCManager, NPCBehavior
+from entities.ship import Ship
+
+
+def _dist(a, b):
+    return ((a.position[0] - b.position[0]) ** 2 +
+            (a.position[1] - b.position[1]) ** 2) ** 0.5
+
 
 def test_universe_ai():
-    print("--- Iniciando Teste de Universo e IA (Fase 4) ---")
-    
-    # 1. Setup do Universo
+    print("--- Iniciando Teste de Universo e IA ---")
+
+    # Bus é singleton global: limpar listeners de testes anteriores.
+    bus._listeners.clear()
+
     universe = UniverseManager()
-    loader = DataLoader(data_dir="data")
-    
-    # Carregar templates
-    ship_templates = loader.load_json("ships.json")["ships"]
-    scout_template = Ship.from_dict(ship_templates[0]) # Void Runner
-    freighter_template = Ship.from_dict(ship_templates[1]) # Iron Whale
-    
-    # 2. Spawn de Entidades
-    print("\nSpawning: Jogador (Freighter) e NPC (Scout)...")
-    player_id = universe.spawn_ship(freighter_template, position=[0, 0])
-    npc_id = universe.spawn_ship(scout_template, position=[500, 500])
-    
-    player_ship = universe.entities[player_id]
-    npc_ship = universe.entities[npc_id]
-    
-    # 3. Inicializar IA para o NPC
-    npc_ai = NPCManager(npc_ship, target=player_ship)
-    
-    # 4. Simulação de 5 segundos
-    dt = 1/60.0
-    print(f"\nSimulando: NPC perseguindo o Jogador...")
-    
-    for i in range(300): # 5 segundos
-        # Atualiza IA
-        npc_ai.update(dt)
-        
-        # Atualiza Universo (Física)
-        universe.update(dt)
-        
-        if i % 60 == 0:
-            dx = player_ship.position[0] - npc_ship.position[0]
-            dy = player_ship.position[1] - npc_ship.position[1]
-            dist = (dx**2 + dy**2)**0.5
-            print(f"T={i*dt:.1f}s | Estado IA: {npc_ai.state} | Distância: {dist:.2f} | Pos NPC: [{npc_ship.position[0]:.1f}, {npc_ship.position[1]:.1f}]")
+    npc_mgr = NPCManager(universe)
 
-    # 5. Teste de Fuga (FLEE)
-    print("\nSimulando: NPC com escudos baixos (FLEE)...")
-    npc_ship.current_shields = 10.0 # Abaixo do threshold de 20.0
-    
-    for i in range(300, 480): # Mais 3 segundos
-        npc_ai.update(dt)
-        universe.update(dt)
-        
-        if i % 60 == 0:
-            dx = player_ship.position[0] - npc_ship.position[0]
-            dy = player_ship.position[1] - npc_ship.position[1]
-            dist = (dx**2 + dy**2)**0.5
-            print(f"T={i*dt:.1f}s | Estado IA: {npc_ai.state} | Distância: {dist:.2f} | Vel NPC: {npc_ship.velocity[0]:.2f}")
+    # Player (alvo imóvel) — facção hostil aos Pirates.
+    player_template = Ship(
+        id="player", name="Skiff", ship_class="Small", model_id="starter_skiff",
+        mass=120, energy_capacity=100, heat_dissipation=8,
+        max_hp=80, current_hp=80, max_shields=100, current_shields=100,
+        is_player=True, faction="United Humans",
+    )
+    pid = universe.spawn_ship(player_template, [0.0, 0.0])
+    player = universe.entities[pid]
 
-    print("\n--- Teste Concluído com Sucesso ---")
+    # NPC pirata em IDLE, dentro do detection_range (~707px < 1000).
+    pirate_template = Ship(
+        id="pirate", name="Wasp Pirate", ship_class="Small", model_id="wasp_combat",
+        mass=100, energy_capacity=100, heat_dissipation=5,
+        max_hp=70, current_hp=70, max_shields=80, current_shields=80,
+        faction="Pirates",
+    )
+    npc_id = universe.spawn_ship(pirate_template, [500.0, 500.0])
+    npc = universe.entities[npc_id]
+    npc_mgr.register_npc(npc_id, NPCBehavior.IDLE)
+
+    dist0 = _dist(player, npc)
+    print(f"\nDistância inicial: {dist0:.1f} | Estado: {npc_mgr.npc_ships[npc_id]}")
+    assert npc_mgr.npc_ships[npc_id] == NPCBehavior.IDLE
+
+    # 1+2. Perseguição: simula 5s; player parado, NPC deve aproximar.
+    dt = 1 / 60.0
+    for i in range(300):
+        npc_mgr.update(dt)
+        universe.update(dt)
+        if i % 60 == 0:
+            print(f"T={i*dt:.1f}s | Estado: {npc_mgr.npc_ships[npc_id]} | Dist: {_dist(player, npc):.1f}")
+
+    dist_chase = _dist(player, npc)
+    state_chase = npc_mgr.npc_ships[npc_id]
+    print(f"\nApós perseguição: Estado={state_chase} | Dist={dist_chase:.1f}")
+    assert state_chase in (NPCBehavior.CHASE, NPCBehavior.ATTACK), \
+        f"NPC hostil deveria estar perseguindo/atacando, está {state_chase}"
+    assert dist_chase < dist0, "NPC não se aproximou do player"
+
+    # 3. FLEE: eleva o threshold de fuga e zera escudos -> deve fugir.
+    npc_mgr.flee_shield_threshold = 50.0
+    npc.current_shields = 10.0
+    # Garante que está em ATTACK (handler que checa o threshold de fuga).
+    npc_mgr.npc_ships[npc_id] = NPCBehavior.ATTACK
+    npc_mgr.update(dt)  # transição ATTACK -> FLEE
+    assert npc_mgr.npc_ships[npc_id] == NPCBehavior.FLEE, \
+        "NPC com escudos baixos deveria entrar em FLEE"
+    print(f"\nEscudos baixos -> Estado: {npc_mgr.npc_ships[npc_id]}")
+
+    # Zera o momento acumulado na perseguição para isolar o vetor de fuga
+    # (a IA não aplica drag; do contrário o NPC coasta em direção ao alvo).
+    npc.velocity = [0.0, 0.0]
+    dist_flee_start = _dist(player, npc)
+    for _ in range(300):  # 5s fugindo (precisa girar ~180° antes de acelerar)
+        npc_mgr.update(dt)
+        universe.update(dt)
+    dist_flee_end = _dist(player, npc)
+    print(f"Distância durante fuga: {dist_flee_start:.1f} -> {dist_flee_end:.1f}")
+    assert dist_flee_end > dist_flee_start, "NPC em FLEE deveria se afastar do player"
+
+    print("\nTeste de Universo e IA: OK")
+
 
 if __name__ == "__main__":
     test_universe_ai()
