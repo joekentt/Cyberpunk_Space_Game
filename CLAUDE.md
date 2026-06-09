@@ -12,7 +12,7 @@ em vez de se referenciarem diretamente.
 core/        EventBus, SaveManager, InputConfig, DataLoader, GameLoop
 systems/     Managers (player, npc, combat, station, energy, economy...)
 entities/    Ship, Module, Station (dataclasses puras, sem pygame)
-visual_engine/  Geração procedural de sprites, HUD, Camera, StationUI, KeybindsUI
+visual_engine/  Geração procedural de sprites, HUD, Radar, Camera, StationUI, KeybindsUI
 data/        ships.json, factions.json, mission_templates.json
 config/      keybinds.json (gerado em runtime — keybindings do jogador)
 saves/       slots de save (gerados em runtime)
@@ -131,9 +131,51 @@ ou corromper, no espírito do `InputConfig`). Seções:
   `flee_shield_threshold` (=0 → piratas Tier 1 lutam até o fim),
   `recover_shield_threshold`.
 - `shield`: `base_recharge` (recarga de escudo do player, escala com pips).
+- `boost`: ver seção **Boost** acima (`force_mult`, `duration`, `cost`,
+  `max_charge`, `recharge_per_s`, `cooldown`).
+- `radar`: `range` (alcance do radar em unidades de mundo — ver seção **Radar**).
 
 Consumidores: `CombatManager` (firepower), `NPCManager` (IA), `EnergyManager`
-(recarga). Tuning de balanceamento não exige editar código.
+(recarga), `PlayerManager` (boost), `Radar` (range). Tuning de balanceamento não
+exige editar código.
+
+---
+
+## Radar de proximidade (ver ADR 008)
+
+Overlay de HUD circular (estilo Elite) no canto inferior direito, com o player
+no centro. É **puramente de apresentação**: lê posições já existentes
+(`universe.entities`, `station_mgr.get_all()`) e desenha blips — não toca lógica
+de jogo.
+
+- `visual_engine/radar_math.py` — **puro, sem pygame**, testável headless.
+  `radar_project(player_pos, target_pos, world_range, disc_radius)` devolve
+  `(dx, dy, on_edge, in_range)` em pixels relativos ao centro do disco. Alvos
+  fora do alcance são **clampados na borda** (mantêm a direção).
+- `visual_engine/radar.py` — classe `Radar` (só desenha). Norte do radar = **+Y
+  do mundo** (norte fixo, não alinhado à proa — mais estável ao manobrar).
+- Cores por relação (mesma paleta do HUD de combate): **hostil = vermelho**,
+  **neutro = amarelo**, **aliado = ciano**, **estação = verde (quadrado)**,
+  **player = branco**. Blips fora do alcance ficam mais apagados.
+- Toggle pela ação remapeável `toggle_radar` (padrão `R`), estado `_radar_on`
+  em `main_pygame.py`. Desenhado no `_render` durante `"playing"`/`"paused"`.
+- O alcance do radar (`balance.radar["range"]`) **não** é o alcance de detecção
+  da IA (`balance.ai["detection_range"]`): ver um blip não significa que a nave
+  já te detectou.
+- Quando entidades/objetos novos (corpos celestes etc.) forem adicionados como
+  entidades com `position`, o radar os inclui **automaticamente**.
+
+### Fonte única de hostilidade — `systems/factions_util.py`
+
+Para não duplicar a tabela de hostilidade numa terceira cópia, o set canônico
+`HOSTILITY` e os helpers vivem aqui (módulo puro):
+
+- `is_hostile(a, b)` — **direcional** `(atacante, alvo)`; semântica usada pela IA.
+- `relation(viewer, other)` — **simétrica**; devolve `"hostile"` / `"ally"` /
+  `"neutral"` para a coloração do radar.
+
+`NPCManager.HOSTILITY` virou alias deste módulo e `CombatManager.hostility_table`
+é derivado dele (comportamento inalterado, coberto por `tests/test_combat.py`).
 
 ---
 
@@ -147,6 +189,8 @@ SDL_VIDEODRIVER=dummy python main_pygame.py   # smoke headless (sem janela)
 # Testes (cada um roda direto, sem framework):
 python tests/test_docking.py
 python tests/test_movement.py
+python tests/test_boost.py             # boost de propulsor (ADR 007)
+python tests/test_radar.py             # radar: projeção/clamp + relações (ADR 008)
 python tests/test_input_config.py
 python tests/test_combat.py
 python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
@@ -172,8 +216,8 @@ O mapeamento ação → tecla é configurável pelo jogador e persistido em disc
   `"left ctrl"` etc.
 - **Ações** (em `DEFAULTS`, nesta ordem): `thrust_forward`, `thrust_back`,
   `rotate_left`, `rotate_right`, `strafe_left`, `strafe_right`, `boost`,
-  `shoot`, `dock_toggle`, `pause`.
-- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, ESC.
+  `shoot`, `dock_toggle`, `toggle_radar`, `pause`.
+- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, R, ESC.
 - API principal: `get(action)`, `set(action, key_name)`, `conflicts()`
   (retorna `{tecla: [ações]}` para teclas usadas por mais de uma ação),
   `reset_to_defaults()`, `load()`, `save()`.
@@ -196,8 +240,10 @@ usuário). Exemplo:
     "rotate_right": "d",
     "strafe_left": "q",
     "strafe_right": "e",
+    "boost": "left shift",
     "shoot": "space",
     "dock_toggle": "f",
+    "toggle_radar": "r",
     "pause": "escape"
 }
 ```

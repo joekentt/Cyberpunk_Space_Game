@@ -16,6 +16,7 @@ from typing import Dict, List
 from core.event_bus import bus
 from core.balance import balance
 from entities.projectile import Projectile
+from systems import factions_util
 
 
 # Templates de arma padrão. No futuro virão dos Modules equipados.
@@ -62,16 +63,9 @@ class CombatManager:
         # Cooldowns por (ship_id, weapon_slot)
         self.cooldowns: Dict[str, float] = {}
 
-        # Tabela de hostilidade entre facções (poderia vir do FactionManager)
-        # Por padrão, todas as facções podem atacar todas (PvE)
-        self.hostility_table = {
-            ("Pirates", "United Humans"): True,
-            ("Pirates", "Independent"): True,
-            ("Pirates", "Marth"): True,
-            ("United Humans", "Pirates"): True,
-            ("Orcs", "United Humans"): True,
-            ("Marth", "Pirates"): True,
-        }
+        # Hostilidade vem da fonte única `systems/factions_util` (ver ADR 008).
+        # Mantido como dict-espelho por compatibilidade; derivado, não duplicado.
+        self.hostility_table = {pair: True for pair in factions_util.HOSTILITY}
 
         bus.subscribe("PLAYER_INPUT", self._on_player_input)
         bus.subscribe("NPC_FIRE", self._on_npc_fire)

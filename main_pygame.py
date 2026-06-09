@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.event_bus import bus
 from core.input_config import InputConfig
 from core.save_manager import SaveManager
+from core.balance import balance
 from systems.universe_manager import UniverseManager
 from systems.player_manager import PlayerManager
 from systems.npc_manager import NPCManager, NPCBehavior
@@ -39,6 +40,7 @@ from visual_engine.station_generator import StationGenerator
 from visual_engine.vfx_generator import VFXGenerator, render_projectile
 from visual_engine.camera import Camera, ParallaxBackground
 from visual_engine.hud import HUD
+from visual_engine.radar import Radar
 from visual_engine.station_ui import StationUI
 from visual_engine.keybinds_ui import KeybindsUI
 from visual_engine.main_menu_ui import MainMenuUI
@@ -120,6 +122,8 @@ class SpaceRPGVisual:
         self.camera = Camera(WIDTH, HEIGHT)
         self.parallax = ParallaxBackground(WIDTH, HEIGHT)
         self.hud = HUD(WIDTH, HEIGHT)
+        self.radar = Radar(WIDTH, HEIGHT, world_range=balance.radar["range"])
+        self._radar_on = True
         self._station_sprites = {}
 
         # UI overlay
@@ -593,6 +597,8 @@ class SpaceRPGVisual:
 
             if ev.key == self._key("dock_toggle"):
                 bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
+            elif ev.key == self._key("toggle_radar"):
+                self._radar_on = not self._radar_on
             elif ev.key == pygame.K_1:
                 bus.emit("PLAYER_INPUT", {"action": "set_pips", "system": "weapons"})
             elif ev.key == pygame.K_2:
@@ -945,6 +951,12 @@ class SpaceRPGVisual:
             self.hud.draw(self.screen, player)
             self._draw_combat_hud(player)
             self._draw_docking_prompt()
+            if self._radar_on:
+                self.radar.draw(
+                    self.screen, player,
+                    self.universe.entities.values(),
+                    self.station_mgr.get_all(),
+                )
 
         if self.game_state == "paused":
             self._draw_pause_menu()

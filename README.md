@@ -96,6 +96,7 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 | **SHIFT** | **Boost de propulsor (pico de aceleração ~2.6× por 0.8 s; consome capacitor)** |
 | ESPAÇO | Disparar arma primária |
 | **F** | **Acoplar em estação (dentro do raio) / Desacoplar** |
+| **R** | **Ligar / desligar o radar de proximidade** |
 | 1 / 2 / 3 | Realocar 1 pip para Weapons / Shields / Engines |
 | ESC | Abrir menu de pausa |
 
@@ -105,6 +106,12 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 > **Boost:** empuxo frontal ~2.6× por 0.8 s. Consome 1 carga do capacitor (máx 3).
 > O capacitor recarrega ~0.5/s (escala com pips de **Engines**). Cooldown 0.4 s
 > após o pico. Não afeta ré nem strafe. Remapeável como todas as teclas.
+>
+> **Radar:** disco no canto inferior direito com o player no centro. Blips
+> coloridos por relação — vermelho (hostil), amarelo (neutro), ciano (aliado),
+> verde (estação). Alvos fora do alcance grudam na borda, mais apagados. O
+> alcance do radar é só ajuda de UX: ver um blip **não** significa que aquela
+> nave já te detectou.
 
 ### Menu de pausa (ESC)
 
@@ -157,12 +164,14 @@ Cada teste é executável diretamente sem nenhum framework. A partir da raiz do 
 # Lógica pura (não dependem de pygame):
 python tests/test_docking.py        # ciclo de docking, mercado, respawn
 python tests/test_movement.py       # strafe, ré, hierarquia de empuxo
+python tests/test_boost.py          # boost de propulsor: capacitor, cooldown, recarga
 python tests/test_input_config.py   # keybindings: padrões, persistência, conflitos
 python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
 python tests/test_menu_flow.py      # menu principal, criação de piloto, novo/carregar jogo
 python tests/test_progression_v1.py # progressão e condição de vitória (Ciclo E)
 python tests/test_factions.py       # reputação multi-eixo, market/dock, flags, persistência
 python tests/test_universe_ai.py    # FSM da IA: IDLE→CHASE→ATTACK→FLEE
+python tests/test_radar.py          # radar: projeção mundo→disco, clamp, relação de facção
 
 # Outros testes:
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader

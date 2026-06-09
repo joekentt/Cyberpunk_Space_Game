@@ -4,6 +4,7 @@ from typing import Dict, List, Any, Optional
 from core.event_bus import bus
 from core.balance import balance
 from entities.ship import Ship
+from systems import factions_util
 
 class NPCBehavior:
     IDLE = "IDLE"
@@ -165,16 +166,11 @@ class NPCManager:
                 return entity
         return None
 
-    # Tabela simples de hostilidades (espelho do CombatManager).
-    # Em projeto maduro isso vem do FactionManager.
-    HOSTILITY = {
-        ("Pirates", "United Humans"), ("Pirates", "Independent"), ("Pirates", "Marth"),
-        ("Orcs", "United Humans"),
-        ("Marth", "Pirates"),
-        ("United Humans", "Pirates"),
-    }
+    # Hostilidade vem da fonte única `systems/factions_util` (ver ADR 008).
+    # Alias de classe mantido por compatibilidade (testes/legado).
+    HOSTILITY = factions_util.HOSTILITY
 
     def _is_hostile(self, attacker: Ship, target: Ship) -> bool:
         fa = getattr(attacker, "faction", "Independent")
         ft = getattr(target, "faction", "Independent")
-        return (fa, ft) in self.HOSTILITY
+        return factions_util.is_hostile(fa, ft)

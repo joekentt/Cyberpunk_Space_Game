@@ -2,7 +2,8 @@
 balance — números de balanceamento de combate, data-driven.
 
 Carrega `data/balance.json` uma vez (singleton `balance`) e expõe as seções
-`firepower`, `ai` e `shield`. No mesmo espírito do `InputConfig`, é TOLERANTE A
+`firepower`, `ai`, `shield`, `boost` e `radar`. No mesmo espírito do
+`InputConfig`, é TOLERANTE A
 FALHAS: se o arquivo faltar ou estiver corrompido, usa `DEFAULTS` e o jogo nunca
 quebra. Chaves ausentes no JSON também caem no default por seção (merge raso).
 
@@ -40,6 +41,9 @@ DEFAULTS: Dict[str, Dict[str, Any]] = {
         "recharge_per_s": 0.5,
         "cooldown": 0.4,
     },
+    "radar": {
+        "range": 2000.0,
+    },
 }
 
 _DEFAULT_PATH = os.path.join(
@@ -56,6 +60,7 @@ class Balance:
         self.ai: Dict[str, Any] = {}
         self.shield: Dict[str, Any] = {}
         self.boost: Dict[str, Any] = {}
+        self.radar: Dict[str, Any] = {}
         self.load()
 
     def load(self):

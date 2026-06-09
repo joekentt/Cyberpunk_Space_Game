@@ -30,6 +30,7 @@ class InputConfig:
         "boost": "left shift",
         "shoot": "space",
         "dock_toggle": "f",
+        "toggle_radar": "r",
         "pause": "escape",
     }
 
@@ -44,6 +45,7 @@ class InputConfig:
         "boost": "Boost (propulsor)",
         "shoot": "Disparar",
         "dock_toggle": "Acoplar / Desacoplar",
+        "toggle_radar": "Radar (liga/desliga)",
         "pause": "Pausar",
     }
 

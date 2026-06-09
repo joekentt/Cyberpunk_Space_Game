@@ -32,5 +32,10 @@
         "max_charge": 3.0,
         "recharge_per_s": 0.5,
         "cooldown": 0.4
+    },
+
+    "radar": {
+        "_comment": "Radar de proximidade (visual_engine/radar.py). range = alcance em unidades de mundo; blips além disso grudam na borda do disco. NÃO é o alcance de detecção da IA (ver ai.detection_range) — é só ajuda de UX.",
+        "range": 2000.0
     }
 }
