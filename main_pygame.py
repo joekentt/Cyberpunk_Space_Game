@@ -856,7 +856,11 @@ class SpaceRPGVisual:
                 faction=station.faction, difficulty=1.0
             )
         available = list(self.mission_mgr.available_missions.values())
-        self.station_ui.open(station, player, available_missions=available)
+        self.station_ui.open(
+            station, player, available_missions=available,
+            hidden_poi_count=self.exploration_mgr.hidden_count()
+            if self.exploration_mgr else 0,
+        )
 
     def _on_undocked(self, data):
         self.game_state = "playing"

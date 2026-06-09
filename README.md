@@ -100,6 +100,7 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 | **F** | **Acoplar em estação (dentro do raio) / Desacoplar** |
 | **R** | **Ligar / desligar o radar de proximidade** |
 | **J** | **Supercruise: entrar (com carga) / sair (drop)** |
+| **M** | **Mapa estelar do setor (fog-of-war; M/ESC fecha)** |
 | 1 / 2 / 3 | Realocar 1 pip para Weapons / Shields / Engines |
 | ESC | Abrir menu de pausa |
 
@@ -122,6 +123,11 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 > NPCs não engajam) e o HUD mostra distância e tempo até o drop. Ao se aproximar
 > de uma estação, o jogo **dropa automaticamente** fora do raio de docking (não
 > acopla sozinho). **J** ou **ESC** dão drop manual a qualquer momento.
+>
+> **Exploração:** o setor tem localizações ocultas (campos de asteroides,
+> sinais, destroços). Descubra-as **aproximando-se** delas, por **dados de
+> localização** dropados de naves destruídas, ou comprando **cartografia**
+> nas estações. O mapa (**M**) e o radar só mostram o que você já descobriu.
 
 ### Menu de pausa (ESC)
 
@@ -184,8 +190,11 @@ python tests/test_universe_ai.py    # FSM da IA: IDLE→CHASE→ATTACK→FLEE
 python tests/test_radar.py          # radar: projeção mundo→disco, clamp, relação de facção
 python tests/test_supercruise.py    # supercruise: entrada, aceleração, drop seguro (ADR 010)
 python tests/test_audio.py          # áudio por eventos: mapa, cooldown, tolerância a falhas (ADR 009)
+python tests/test_exploration.py    # POIs, fog-of-war, descoberta, drops, cartografia (ADR 011)
+python tests/test_starmap.py        # matemática do mapa: bounds, projeção, clamp (ADR 011)
 
 # Outros testes:
+python tests/test_cartography.py    # compra de cartografia na estação (pygame dummy)
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
 python tests/test_missions.py       # geração e ciclo de missões
 python tests/test_procedural.py     # geração de universo
@@ -257,6 +266,8 @@ Veja o ADR 009 para a decisão de design (boot inicializa o mixer uma vez; o
 - ✅ **Radar de proximidade** com blips por relação de facção (ver ADR 008)
 - ✅ **Áudio por eventos** (SFX desacoplados, tolerante a falhas — ver ADR 009)
 - ✅ **Supercruise**: viagem rápida intra-setor com drop automático (ver ADR 010)
+- ✅ **Mapa estelar + exploração**: POIs com fog-of-war, descoberta por
+  proximidade/drop/cartografia (ver ADR 011)
 - ✅ Suíte de testes headless cobrindo facções multi-eixo e FSM da IA (atualizados)
 
 ## Próximos passos sugeridos
@@ -265,4 +276,4 @@ Veja o ADR 009 para a decisão de design (boot inicializa o mixer uma vez; o
 2. Música de fundo + UI de settings (volume/mute) usando o `AudioManager`
 3. Múltiplos slots de save com gerenciamento (deletar/renomear)
 4. NPCs Tier 2 (Stingrays piratas como spawns de elite)
-5. Mapa estelar / sistema de viagem entre setores
+5. Galáxia multi-sistema (Escopo B do ADR 011): jump drive + universe_generator

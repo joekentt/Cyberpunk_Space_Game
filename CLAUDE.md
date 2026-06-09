@@ -138,10 +138,13 @@ ou corromper, no espírito do `InputConfig`). Seções:
 - `radar`: `range` (alcance do radar em unidades de mundo — ver seção **Radar**).
 - `supercruise`: `speed_mult`, `max_speed`, `accel`, `spool_up_s`, `drop_radius`,
   `exit_offset`, `min_entry_distance` (ver seção **Supercruise** e ADR 010).
+- `exploration`: `discover_radius`, `location_drop_chance`, `cartography_price`,
+  `cartography_reveal_count` (ver seção **Exploração** e ADR 011).
 
 Consumidores: `CombatManager` (firepower), `NPCManager` (IA), `EnergyManager`
 (recarga), `PlayerManager` (boost), `Radar` (range), `SupercruiseManager`
-(viagem). Tuning de balanceamento não exige editar código.
+(viagem), `ExplorationManager`/`LootManager`/`StationUI` (exploração). Tuning
+de balanceamento não exige editar código.
 
 ---
 
@@ -249,6 +252,41 @@ nenhum sistema de gameplay conhece áudio. Os managers já emitem eventos
 
 ---
 
+## Exploração e mapa estelar (ver ADR 011)
+
+**Escopo A:** o jogo continua em UM setor contínuo; o mapa mostra esse setor
+com fog-of-war. Galáxia multi-sistema (Escopo B) ficou para um ciclo futuro.
+
+- `entities/poi.py` — `PointOfInterest` (dados puros; `kind ∈ {station,
+  asteroid_field, signal, derelict}`). POIs **não entram** em
+  `universe.entities` — não poluem o universo de combate.
+- `systems/exploration_manager.py` — dono dos POIs; **3 canais de descoberta**:
+  1. **Proximidade:** `update(dt, player_pos)` dentro de `discover_radius`
+     (roda em `"playing"` **e** `"supercruise"` — cruzar o setor revela o
+     caminho). Emite `POI_DISCOVERED` **uma única vez** por POI, com `source`
+     (`proximity`/`location_data`/`cartography`) para o feedback diferenciar.
+  2. **Drop:** `LootManager` pode dropar `location_data`
+     (`exploration.location_drop_chance`); o main chama
+     `reveal_random_hidden()` — sem POI oculto é no-op.
+  3. **Cartografia:** opção na `StationUI` debita créditos (fonte única,
+     padrão do `_buy_ship`) e emite `CARTOGRAPHY_PURCHASED`; o manager revela
+     `cartography_reveal_count` POIs.
+- **Estados iniciais:** as 3 estações entram como POIs já descobertos
+  (`register_station`); os 6 POIs ocultos vivem em `_setup_pois`.
+- **Persistência aditiva:** campo `exploration` (`{"discovered_ids": [...]}`)
+  no payload — saves antigos carregam com o default; IDs desconhecidos são
+  ignorados. Segue o padrão do `progression`.
+- **Starmap:** `visual_engine/starmap_math.py` (**puro**: `compute_bounds` +
+  `world_to_map` com escala uniforme e clamp) e `starmap_ui.py` (só desenha).
+  Bounds computados de TODOS os POIs para a moldura não pular a cada
+  descoberta. O radar também mostra POIs descobertos (blips violeta; o fog é
+  aplicado pelo chamador, e POIs `kind="station"` são filtrados para não
+  duplicar o blip de estação).
+- Regra do mundo (ADR 005): `ExplorationManager` criado em
+  `_build_world_systems`, zerado em `_teardown_world`.
+
+---
+
 ## Executar e testar
 
 ```bash
@@ -263,6 +301,9 @@ python tests/test_boost.py             # boost de propulsor (ADR 007)
 python tests/test_radar.py             # radar: projeção/clamp + relações (ADR 008)
 python tests/test_supercruise.py       # supercruise: entrada/aceleração/drop seguro (ADR 010)
 python tests/test_audio.py             # áudio por eventos: mapa/cooldown/tolerância (ADR 009)
+python tests/test_exploration.py       # POIs/fog/descoberta/drop/cartografia (ADR 011)
+python tests/test_starmap.py           # matemática do mapa: bounds/projeção/clamp (ADR 011)
+python tests/test_cartography.py       # compra de cartografia na estação (pygame dummy)
 python tests/test_input_config.py
 python tests/test_combat.py
 python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
@@ -288,8 +329,9 @@ O mapeamento ação → tecla é configurável pelo jogador e persistido em disc
   `"left ctrl"` etc.
 - **Ações** (em `DEFAULTS`, nesta ordem): `thrust_forward`, `thrust_back`,
   `rotate_left`, `rotate_right`, `strafe_left`, `strafe_right`, `boost`,
-  `shoot`, `dock_toggle`, `toggle_radar`, `supercruise_toggle`, `pause`.
-- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, R, J, ESC.
+  `shoot`, `dock_toggle`, `toggle_radar`, `supercruise_toggle`,
+  `starmap_toggle`, `pause`.
+- **Padrões:** W, S, A, D, Q, E, SHIFT, ESPAÇO, F, R, J, M, ESC.
 - API principal: `get(action)`, `set(action, key_name)`, `conflicts()`
   (retorna `{tecla: [ações]}` para teclas usadas por mais de uma ação),
   `reset_to_defaults()`, `load()`, `save()`.
@@ -317,6 +359,7 @@ usuário). Exemplo:
     "dock_toggle": "f",
     "toggle_radar": "r",
     "supercruise_toggle": "j",
+    "starmap_toggle": "m",
     "pause": "escape"
 }
 ```
@@ -355,6 +398,7 @@ jogador sai da tela (o loop então volta para `"paused"`).
 | `"docked"` | UI da estação aberta; lógica de jogo pausada |
 | `"dying"` | Animação de morte (3 s) antes do respawn |
 | `"supercruise"` | Viagem rápida intra-setor; universo congelado exceto o player (ver ADR 010) |
+| `"starmap"` | Mapa do setor com fog-of-war; jogo congelado como na pausa (ver ADR 011) |
 
 Regras de transição importantes:
 - O jogo **abre em `"main_menu"`**; o mundo só é construído em `start_new_game`
@@ -366,6 +410,8 @@ Regras de transição importantes:
   → `"supercruise"`. Drop (automático por massa ou manual via `J`/ESC) volta a
   `"playing"`. ESC em supercruise **não** abre pausa — só dá drop. Não se entra
   perto de massa nem atracado/aproximando.
+- **Starmap:** `M` em `"playing"` abre o mapa (`"starmap"`); `M`/ESC fecham de
+  volta a `"playing"`. Sem branch de update — o mundo congela como na pausa.
 
 ### Ciclo de vida do mundo e limpeza do EventBus (armadilha do singleton)
 

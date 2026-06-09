@@ -16,6 +16,7 @@ import pygame
 import os
 import json
 from core.event_bus import bus
+from core.balance import balance
 from systems.combat_manager import CombatManager
 
 
@@ -37,6 +38,7 @@ class StationUI:
         self.available_missions = []      # missões disponíveis nesta estação
         self.station = None               # Station atual
         self.player = None                # Ship do jogador
+        self.hidden_poi_count = 0         # POIs ainda ocultos (cartografia)
         self.message: str = ""            # mensagem efêmera (sucesso/erro)
         self.message_timer = 0.0
 
@@ -52,7 +54,8 @@ class StationUI:
 
     # ---- Lifecycle -----------------------------------------------------
 
-    def open(self, station, player, available_missions=None):
+    def open(self, station, player, available_missions=None,
+             hidden_poi_count: int = 0):
         self.station = station
         self.player = player
         self.screen = self.SCREEN_MAIN
@@ -60,6 +63,7 @@ class StationUI:
         self.shipyard_selection = 0
         self.missions_selection = 0
         self.available_missions = list(available_missions or [])
+        self.hidden_poi_count = int(hidden_poi_count)
         self.message = ""
 
     def close(self):
@@ -167,6 +171,9 @@ class StationUI:
         mission_count = len(self.available_missions)
         label = f"MISSÕES ({mission_count})" if mission_count else "MISSÕES"
         opts.append((label, "missions"))
+        price = balance.exploration["cartography_price"]
+        opts.append((f"CARTOGRAFIA ({price:,} cr)".replace(",", "."),
+                     "cartography"))
         opts.append(("DESACOPLAR", "undock"))
         return opts
 
@@ -183,6 +190,8 @@ class StationUI:
         elif key == "missions":
             self.screen = self.SCREEN_MISSIONS
             self.missions_selection = 0
+        elif key == "cartography":
+            self._buy_cartography()
         elif key == "undock":
             bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
 
@@ -213,6 +222,31 @@ class StationUI:
             "buyer_id": self.player.id,
         })
         self.show_message(f"Nave adquirida: {ship_data['name']}")
+
+    def _buy_cartography(self):
+        """
+        Compra dados de cartografia (ADR 011): debita créditos (fonte única,
+        mesmo padrão do _buy_ship) e emite CARTOGRAPHY_PURCHASED para o
+        ExplorationManager revelar os POIs.
+        """
+        price = balance.exploration["cartography_price"]
+        count = balance.exploration["cartography_reveal_count"]
+        if self.hidden_poi_count <= 0:
+            self.show_message("Sem novos dados de cartografia disponíveis")
+            return
+        if self.player.credits < price:
+            self.show_message(f"Créditos insuficientes ({self.player.credits}/{price})")
+            return
+
+        self.player.credits -= price
+        revealed = min(count, self.hidden_poi_count)
+        self.hidden_poi_count -= revealed
+        bus.emit("CARTOGRAPHY_PURCHASED", {
+            "count": count,
+            "buyer_id": self.player.id,
+        })
+        self.show_message(
+            f"Cartografia adquirida: {revealed} localização(ões) revelada(s)")
 
     # ---- Render --------------------------------------------------------
 
