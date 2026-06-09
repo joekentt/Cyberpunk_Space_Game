@@ -44,6 +44,8 @@ from visual_engine.hud import HUD
 from visual_engine.radar import Radar
 from systems.supercruise_manager import SupercruiseManager
 from systems.audio_manager import AudioManager
+from systems.exploration_manager import ExplorationManager
+from entities.poi import PointOfInterest
 from visual_engine.station_ui import StationUI
 from visual_engine.keybinds_ui import KeybindsUI
 from visual_engine.main_menu_ui import MainMenuUI
@@ -120,6 +122,7 @@ class SpaceRPGVisual:
         self.mission_mgr = None
         self.faction_mgr = None
         self.prog_mgr = None
+        self.exploration_mgr = None
         self.vfx = None
         self.player_id = None
         self.player_mgr = None
@@ -194,6 +197,7 @@ class SpaceRPGVisual:
         self.vfx.set_universe(self.universe)
 
         self.prog_mgr = ProgressionManager()
+        self.exploration_mgr = ExplorationManager()
 
         self.player_id = None
         self.player_mgr = None
@@ -213,6 +217,7 @@ class SpaceRPGVisual:
         bus.subscribe("ADD_CREDITS", self._on_add_credits)
         bus.subscribe("MISSION_COMPLETED", self._on_mission_completed)
         bus.subscribe("GAME_COMPLETED", self._on_game_completed)
+        bus.subscribe("POI_DISCOVERED", self._on_poi_discovered)
 
     def _teardown_world(self):
         """Descarta o mundo atual com segurança ao voltar para o menu."""
@@ -228,6 +233,7 @@ class SpaceRPGVisual:
         self.mission_mgr = None
         self.faction_mgr = None
         self.prog_mgr = None
+        self.exploration_mgr = None
         self.vfx = None
         self.player_id = None
         self.player_mgr = None
@@ -241,6 +247,7 @@ class SpaceRPGVisual:
         self._build_world_systems()
         self.pilot_name = (pilot_name or "Piloto").strip() or "Piloto"
         self._setup_stations()
+        self._setup_pois()
         self._spawn_player()
         self._setup_npcs()
 
@@ -344,6 +351,30 @@ class SpaceRPGVisual:
             ship_inventory=["stingray_raider", "terraformador_ligeiro"],
         )
         self.station_mgr.spawn_station(hub3)
+
+    def _setup_pois(self):
+        """
+        Registra os POIs do setor no ExplorationManager (ADR 011).
+
+        As 3 estações entram automaticamente JÁ descobertas; o resto começa
+        oculto (fog-of-war) e é revelado por proximidade, drop de dados de
+        localização ou cartografia.
+        """
+        for station in self.station_mgr.get_all():
+            self.exploration_mgr.register_station(station)
+
+        hidden_pois = [
+            ("poi_ast_1", "Campo de Cinzas",  "asteroid_field", [-800.0, 1400.0]),
+            ("poi_ast_2", "Anel Partido",     "asteroid_field", [3400.0, 1600.0]),
+            ("poi_sig_1", "Sinal Fantasma",   "signal",         [900.0, -1200.0]),
+            ("poi_sig_2", "Eco Distante",     "signal",         [4200.0, -400.0]),
+            ("poi_der_1", "Cargueiro Kepler", "derelict",       [-1500.0, -600.0]),
+            ("poi_der_2", "Fragata Silente",  "derelict",       [3000.0, 2400.0]),
+        ]
+        for pid, name, kind, pos in hidden_pois:
+            self.exploration_mgr.register_poi(PointOfInterest(
+                id=pid, name=name, kind=kind, position=pos, discovered=False,
+            ))
 
     def _hardpoints_for(self, model_id: str) -> dict:
         """Busca os hardpoints declarados no ships.json por model_id/id."""
@@ -467,6 +498,7 @@ class SpaceRPGVisual:
             camera_offset=list(self.camera.offset),
             pilot={"name": self.pilot_name or "Piloto"},
             progression=self.prog_mgr.get_save_data() if self.prog_mgr else {},
+            exploration=self.exploration_mgr.get_save_data() if self.exploration_mgr else {},
         )
         self.save_mgr.save_game(slot, payload)
         self._floating_texts.append({
@@ -493,6 +525,7 @@ class SpaceRPGVisual:
         # Mundo novo do zero, depois aplica o estado salvo por cima.
         self._build_world_systems()
         self._setup_stations()
+        self._setup_pois()
         self._setup_npcs()
         self._spawn_player()   # cria managers + player placeholder
 
@@ -509,6 +542,8 @@ class SpaceRPGVisual:
         self.pilot_name = payload.get("pilot", {}).get("name", "Piloto")
         self.station_ui.player = self.universe.entities[self.player_id]
         self.prog_mgr.load_save_data(payload.get("progression", {}))
+        # Exploração (ADR 011): campo aditivo — saves antigos caem no default.
+        self.exploration_mgr.load_save_data(payload.get("exploration", {}))
 
         offset = payload.get("camera_offset")
         if offset:
@@ -773,6 +808,25 @@ class SpaceRPGVisual:
 
     # -------------------------------------------------------------- bus listeners
 
+    def _on_poi_discovered(self, data):
+        """Feedback visual de descoberta, diferenciado pela origem (ADR 011)."""
+        name = data.get("name", "?")
+        source = data.get("source", "proximity")
+        if source == "location_data":
+            text = f"DADOS DE LOCALIZAÇÃO: {name} revelado"
+        elif source == "cartography":
+            text = f"CARTOGRAFIA: {name} revelado"
+        else:
+            text = f"DESCOBERTO: {name}"
+        player = self.universe.entities.get(self.player_id) if self.universe else None
+        if player:
+            self._floating_texts.append({
+                "text": text,
+                "pos": [player.position[0], player.position[1] - 40],
+                "timer": 2.6,
+                "color": (180, 130, 255),
+            })
+
     def _on_docked(self, data):
         station = data["station"]
         self.game_state = "docked"
@@ -847,6 +901,12 @@ class SpaceRPGVisual:
                 "timer": 2.2,
                 "color": (255, 215, 0),
             })
+
+        # Dados de localização (ADR 011): revela um POI oculto aleatório.
+        # O feedback visual vem do handler de POI_DISCOVERED (source =
+        # "location_data"). Sem POI oculto, reveal devolve None (no-op).
+        if "location_data" in loot.get("items", []) and self.exploration_mgr:
+            self.exploration_mgr.reveal_random_hidden(source="location_data")
 
         # Registra o kill nas missões ativas (bounty por facção)
         if destroyed_faction:
@@ -960,6 +1020,7 @@ class SpaceRPGVisual:
                 if player:
                     self.camera.follow(player.position, dt)
                     self.station_mgr.update(dt, player.position)
+                    self.exploration_mgr.update(dt, player.position)
                     self._tick_supercruise_spool(dt, player)
 
             elif self.game_state == "supercruise":
@@ -975,6 +1036,9 @@ class SpaceRPGVisual:
                         player, self.station_mgr.get_all(), dt)
                     self._sc_last = res
                     self.camera.follow(player.position, dt)
+                    # Descoberta também em supercruise: cruzar o setor revela
+                    # o que estiver no caminho (ADR 011).
+                    self.exploration_mgr.update(dt, player.position)
                     if res["drop"]:
                         self._drop_supercruise(res["drop_pos"])
                 self.vfx.update(dt)

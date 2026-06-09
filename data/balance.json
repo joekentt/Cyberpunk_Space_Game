@@ -48,5 +48,13 @@
         "drop_radius": 320.0,
         "exit_offset": 260.0,
         "min_entry_distance": 360.0
+    },
+
+    "exploration": {
+        "_comment": "Exploração e fog-of-war (ADR 011). discover_radius = raio de descoberta por proximidade; location_drop_chance = chance de naves destruídas soltarem dados de localização (revela 1 POI oculto); cartography_price/reveal_count = compra de cartografia na estação.",
+        "discover_radius": 700.0,
+        "location_drop_chance": 0.15,
+        "cartography_price": 4000,
+        "cartography_reveal_count": 3
     }
 }

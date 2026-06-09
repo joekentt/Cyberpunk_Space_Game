@@ -53,6 +53,12 @@ DEFAULTS: Dict[str, Dict[str, Any]] = {
         "exit_offset": 260.0,
         "min_entry_distance": 360.0,
     },
+    "exploration": {
+        "discover_radius": 700.0,
+        "location_drop_chance": 0.15,
+        "cartography_price": 4000,
+        "cartography_reveal_count": 3,
+    },
 }
 
 _DEFAULT_PATH = os.path.join(
@@ -71,6 +77,7 @@ class Balance:
         self.boost: Dict[str, Any] = {}
         self.radar: Dict[str, Any] = {}
         self.supercruise: Dict[str, Any] = {}
+        self.exploration: Dict[str, Any] = {}
         self.load()
 
     def load(self):
