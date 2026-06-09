@@ -32,6 +32,7 @@ class InputConfig:
         "dock_toggle": "f",
         "toggle_radar": "r",
         "supercruise_toggle": "j",
+        "starmap_toggle": "m",
         "pause": "escape",
     }
 
@@ -48,6 +49,7 @@ class InputConfig:
         "dock_toggle": "Acoplar / Desacoplar",
         "toggle_radar": "Radar (liga/desliga)",
         "supercruise_toggle": "Supercruise (entrar/sair)",
+        "starmap_toggle": "Mapa estelar",
         "pause": "Pausar",
     }
 

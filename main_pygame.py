@@ -42,6 +42,7 @@ from visual_engine.vfx_generator import VFXGenerator, render_projectile
 from visual_engine.camera import Camera, ParallaxBackground
 from visual_engine.hud import HUD
 from visual_engine.radar import Radar
+from visual_engine.starmap_ui import StarmapUI
 from systems.supercruise_manager import SupercruiseManager
 from systems.audio_manager import AudioManager
 from systems.exploration_manager import ExplorationManager
@@ -137,6 +138,7 @@ class SpaceRPGVisual:
         self.hud = HUD(WIDTH, HEIGHT)
         self.radar = Radar(WIDTH, HEIGHT, world_range=balance.radar["range"])
         self._radar_on = True
+        self.starmap_ui = StarmapUI(WIDTH, HEIGHT)
         # Supercruise (ADR 010): manager puro + estado de spool-up.
         self.supercruise_mgr = SupercruiseManager(balance.supercruise)
         self._sc_spool = 0.0     # >0 = carregando para entrar (em "playing")
@@ -644,6 +646,16 @@ class SpaceRPGVisual:
                     self._activate_pause_option(opts[self._pause_selection][1])
                 continue
 
+            # Mapa estelar: M/ESC fecham; ↑↓ navegam a seleção (ADR 011).
+            if self.game_state == "starmap":
+                if ev.key in (self._key("starmap_toggle"), pygame.K_ESCAPE):
+                    self.game_state = "playing"
+                else:
+                    n = len(self.exploration_mgr.discovered()) \
+                        if self.exploration_mgr else 0
+                    self.starmap_ui.handle_event(ev, n)
+                continue
+
             # Supercruise: a tecla de toggle, ESC ou pausa dão DROP imediato
             # (ESC nunca fecha o jogo nem abre pausa aqui — só sai do supercruise).
             if self.game_state == "supercruise":
@@ -664,6 +676,9 @@ class SpaceRPGVisual:
                 bus.emit("PLAYER_INPUT", {"action": "dock_toggle"})
             elif ev.key == self._key("supercruise_toggle"):
                 self._toggle_supercruise_spool()
+            elif ev.key == self._key("starmap_toggle"):
+                self.starmap_ui.open()
+                self.game_state = "starmap"
             elif ev.key == self._key("toggle_radar"):
                 self._radar_on = not self._radar_on
             elif ev.key == pygame.K_1:
@@ -1128,10 +1143,15 @@ class SpaceRPGVisual:
             self._draw_combat_hud(player)
             self._draw_docking_prompt()
             if self._radar_on:
+                # POIs descobertos no radar (fog é aplicado aqui; estações já
+                # vêm pela lista própria, então filtramos kind "station").
+                pois = [p for p in self.exploration_mgr.discovered()
+                        if p.kind != "station"] if self.exploration_mgr else []
                 self.radar.draw(
                     self.screen, player,
                     self.universe.entities.values(),
                     self.station_mgr.get_all(),
+                    pois=pois,
                 )
 
         # Aviso de carga (spool-up) durante "playing"
@@ -1150,6 +1170,9 @@ class SpaceRPGVisual:
             self.endgame_ui.draw(self.screen)
         elif self.game_state == "supercruise":
             self._draw_supercruise_overlay(player)
+        elif self.game_state == "starmap":
+            pois = self.exploration_mgr.get_all() if self.exploration_mgr else []
+            self.starmap_ui.draw(self.screen, player, pois)
 
         self._draw_controls()
         self._draw_fps()

@@ -25,6 +25,7 @@ COLOR_NEUTRAL = (210, 200, 90)
 COLOR_ALLY    = (60, 200, 255)
 COLOR_STATION = (60, 220, 120)
 COLOR_PLAYER  = (255, 255, 255)
+COLOR_POI     = (180, 130, 255)   # POIs descobertos (ADR 011)
 
 _RELATION_COLOR = {
     "hostile": COLOR_HOSTILE,
@@ -45,8 +46,15 @@ class Radar:
         self.cy = screen_h - margin - disc_radius
 
     def draw(self, screen: pygame.Surface, player,
-             entities: Iterable, stations: Iterable):
-        """Desenha disco, anéis, player no centro e blips."""
+             entities: Iterable, stations: Iterable, pois: Iterable = ()):
+        """
+        Desenha disco, anéis, player no centro e blips.
+
+        `pois` (opcional) = POIs JÁ descobertos (ADR 011) — o fog-of-war é
+        responsabilidade do chamador; o radar só desenha o que recebe.
+        Estações já vêm via `stations`, então o chamador deve filtrar POIs
+        de kind "station" para não duplicar o blip.
+        """
         if player is None:
             return
 
@@ -69,6 +77,11 @@ class Radar:
         for st in stations:
             self._blit_blip(screen, ppos, getattr(st, "position", [0, 0]),
                             COLOR_STATION, square=True)
+
+        # --- POIs descobertos (violeta) -------------------------------
+        for poi in pois:
+            self._blit_blip(screen, ppos, getattr(poi, "position", [0, 0]),
+                            COLOR_POI)
 
         # --- Naves (cor por relação) ----------------------------------
         for ent in entities:
