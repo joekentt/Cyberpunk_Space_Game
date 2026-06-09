@@ -43,6 +43,7 @@ from visual_engine.camera import Camera, ParallaxBackground
 from visual_engine.hud import HUD
 from visual_engine.radar import Radar
 from systems.supercruise_manager import SupercruiseManager
+from systems.audio_manager import AudioManager
 from visual_engine.station_ui import StationUI
 from visual_engine.keybinds_ui import KeybindsUI
 from visual_engine.main_menu_ui import MainMenuUI
@@ -64,6 +65,13 @@ SAVE_SLOT = 1              # Ciclo C: slot único. Multi-slot é do Ciclo D.
 class SpaceRPGVisual:
     def __init__(self):
         pygame.init()
+        # Mixer inicializado UMA vez no boot (não por mundo). Tolerante a
+        # falhas: em CI/laptops sem device de áudio, o jogo segue em silêncio
+        # (o AudioManager detecta o mixer ausente e vira no-op). Ver ADR 009.
+        try:
+            pygame.mixer.init()
+        except Exception:
+            pass
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("Cyberpunk Space RPG")
         self.clock = pygame.time.Clock()
@@ -166,6 +174,10 @@ class SpaceRPGVisual:
         """
         bus._listeners.clear()
 
+        # Áudio: consumidor puro de eventos. Recriado por mundo (ADR 009) logo
+        # após o clear, então não acumula listeners ao reiniciar o jogo.
+        self.audio_mgr = AudioManager()
+
         self.universe = UniverseManager()
         self.npc_mgr = NPCManager(self.universe)
         self.combat_mgr = CombatManager(self.universe)
@@ -207,6 +219,7 @@ class SpaceRPGVisual:
         bus._listeners.clear()
         self._sc_spool = 0.0
         self._sc_last = None
+        self.audio_mgr = None
         self.universe = None
         self.npc_mgr = None
         self.combat_mgr = None

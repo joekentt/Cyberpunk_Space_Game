@@ -10,10 +10,12 @@ em vez de se referenciarem diretamente.
 
 ```
 core/        EventBus, SaveManager, InputConfig, DataLoader, GameLoop
-systems/     Managers (player, npc, combat, station, energy, economy...)
+systems/     Managers (player, npc, combat, station, energy, audio, supercruise...)
 entities/    Ship, Module, Station (dataclasses puras, sem pygame)
 visual_engine/  Geração procedural de sprites, HUD, Radar, Camera, StationUI, KeybindsUI
-data/        ships.json, factions.json, mission_templates.json
+data/        ships.json, factions.json, balance.json, audio.json
+assets/audio/  WAVs de SFX (placeholders sintéticos versionados)
+tools/       utilitários (gen_placeholder_sfx.py)
 config/      keybinds.json (gerado em runtime — keybindings do jogador)
 saves/       slots de save (gerados em runtime)
 tests/       testes executáveis diretamente (headless)
@@ -211,6 +213,42 @@ modificador do voo normal.
 
 ---
 
+## Áudio por eventos (ver ADR 009)
+
+`systems/audio_manager.py` (`AudioManager`) é um **consumidor puro de eventos**:
+nenhum sistema de gameplay conhece áudio. Os managers já emitem eventos
+(`WEAPON_FIRED`, `PROJECTILE_HIT`, `SHIP_DESTROYED`, `DOCKED`, `BOOST_ACTIVATED`,
+`MISSION_COMPLETED`, `GAME_COMPLETED`, `PIPS_CHANGED`) e o `AudioManager` mapeia
+**evento → som** via `data/audio.json`.
+
+- **Tolerante a falhas:** sem `pygame.mixer` (CI/headless) → `enabled = False`,
+  não carrega samples, mas ainda se inscreve no bus (inócuo). Arquivo faltando →
+  entrada ignorada no load. `data/audio.json` ausente/corrompido → mapa vazio.
+  Em nenhum caso crasha.
+- **Divisão mixer × manager (armadilha):** `pygame.mixer.init()` roda **uma vez**
+  no boot (`SpaceRPGVisual.__init__`, em try/except). O `AudioManager` é criado
+  **por mundo** em `_build_world_systems` (logo após `bus._listeners.clear()`,
+  regra do ADR 005) e zerado em `_teardown_world`. Como o clear roda antes,
+  recriar o mundo (novo jogo 2×) **não duplica sons**.
+- **Data-driven:** `data/audio.json` traz `master_volume` e, por evento,
+  `file`/`volume`/`cooldown` (s). O `cooldown` evita empilhar samples (ex.: tiros).
+- **Assets placeholder:** `tools/gen_placeholder_sfx.py` gera 8 WAVs sintéticos
+  curtos com **stdlib pura** (sem numpy/pygame), versionados em `assets/audio/`
+  para o jogo ter som "out of the box". Troque por arte final mantendo os nomes.
+- **Testabilidade:** o manager aceita injeção de `play_fn` (default = tocar;
+  teste = registrar chamadas) e `time_fn` (default = `time.monotonic`), então a
+  lógica de mapa/cooldown é testada sem hardware (`tests/test_audio.py`).
+- `set_master_volume()` / `toggle_mute()` já existem para uma futura UI de settings.
+
+### Como adicionar um novo SFX
+
+1. Coloque o WAV em `assets/audio/` (ou regere os placeholders).
+2. Adicione a entrada `EVENTO: {"file": ..., "volume": ..., "cooldown": ...}`
+   em `data/audio.json`. O `AudioManager` se inscreve naquele evento
+   automaticamente — desde que algum sistema já o emita pelo bus.
+
+---
+
 ## Executar e testar
 
 ```bash
@@ -224,6 +262,7 @@ python tests/test_movement.py
 python tests/test_boost.py             # boost de propulsor (ADR 007)
 python tests/test_radar.py             # radar: projeção/clamp + relações (ADR 008)
 python tests/test_supercruise.py       # supercruise: entrada/aceleração/drop seguro (ADR 010)
+python tests/test_audio.py             # áudio por eventos: mapa/cooldown/tolerância (ADR 009)
 python tests/test_input_config.py
 python tests/test_combat.py
 python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
