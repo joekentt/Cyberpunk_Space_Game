@@ -10,7 +10,9 @@ Cyberpunk_Space_Game/
 ├── systems/             # Managers (player, npc, combat, station, energy, economy...)
 ├── entities/            # Ship, Module, Station (dataclasses puras, sem pygame)
 ├── visual_engine/       # Sprites procedurais, HUD, Camera, StationUI, KeybindsUI
-├── data/                # ships.json, factions.json, mission_templates.json
+├── data/                # ships.json, factions.json, balance.json, audio.json
+├── assets/audio/        # WAVs de SFX (placeholders sintéticos versionados)
+├── tools/               # utilitários (ex.: gen_placeholder_sfx.py)
 ├── config/              # keybinds.json (gerado em runtime — não versionado)
 ├── saves/               # slots de save (gerados em runtime — não versionados)
 ├── tests/               # testes headless executáveis diretamente
@@ -93,13 +95,39 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 | S | Frear e engatar ré (diminuir throttle; ponto morto no centro) |
 | A / D | Girar o bico esquerda / direita |
 | Q / E | Strafe lateral esquerda / direita (thrusters RCS, sem girar o bico) |
+| **SHIFT** | **Boost de propulsor (pico de aceleração ~2.6× por 0.8 s; consome capacitor)** |
 | ESPAÇO | Disparar arma primária |
 | **F** | **Acoplar em estação (dentro do raio) / Desacoplar** |
+| **R** | **Ligar / desligar o radar de proximidade** |
+| **J** | **Supercruise: entrar (com carga) / sair (drop)** |
+| **M** | **Mapa estelar do setor (fog-of-war; M/ESC fecha)** |
 | 1 / 2 / 3 | Realocar 1 pip para Weapons / Shields / Engines |
 | ESC | Abrir menu de pausa |
 
 > **Empuxo:** motor principal (frente) é o mais forte; ré ~55% e strafe ~45%
 > da força frontal. Toda a potência escala com os pips de **Engines**.
+>
+> **Boost:** empuxo frontal ~2.6× por 0.8 s. Consome 1 carga do capacitor (máx 3).
+> O capacitor recarrega ~0.5/s (escala com pips de **Engines**). Cooldown 0.4 s
+> após o pico. Não afeta ré nem strafe. Remapeável como todas as teclas.
+>
+> **Radar:** disco no canto inferior direito com o player no centro. Blips
+> coloridos por relação — vermelho (hostil), amarelo (neutro), ciano (aliado),
+> verde (estação). Alvos fora do alcance grudam na borda, mais apagados. O
+> alcance do radar é só ajuda de UX: ver um blip **não** significa que aquela
+> nave já te detectou.
+>
+> **Supercruise:** viagem rápida intra-setor (~40× a velocidade de cruzeiro).
+> Aperte **J** longe de estações para carregar (spool-up ~2 s; J de novo
+> cancela) e entrar. Durante o supercruise o combate fica suspenso (sem dano;
+> NPCs não engajam) e o HUD mostra distância e tempo até o drop. Ao se aproximar
+> de uma estação, o jogo **dropa automaticamente** fora do raio de docking (não
+> acopla sozinho). **J** ou **ESC** dão drop manual a qualquer momento.
+>
+> **Exploração:** o setor tem localizações ocultas (campos de asteroides,
+> sinais, destroços). Descubra-as **aproximando-se** delas, por **dados de
+> localização** dropados de naves destruídas, ou comprando **cartografia**
+> nas estações. O mapa (**M**) e o radar só mostram o que você já descobriu.
 
 ### Menu de pausa (ESC)
 
@@ -152,12 +180,21 @@ Cada teste é executável diretamente sem nenhum framework. A partir da raiz do 
 # Lógica pura (não dependem de pygame):
 python tests/test_docking.py        # ciclo de docking, mercado, respawn
 python tests/test_movement.py       # strafe, ré, hierarquia de empuxo
+python tests/test_boost.py          # boost de propulsor: capacitor, cooldown, recarga
 python tests/test_input_config.py   # keybindings: padrões, persistência, conflitos
 python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
 python tests/test_menu_flow.py      # menu principal, criação de piloto, novo/carregar jogo
 python tests/test_progression_v1.py # progressão e condição de vitória (Ciclo E)
+python tests/test_factions.py       # reputação multi-eixo, market/dock, flags, persistência
+python tests/test_universe_ai.py    # FSM da IA: IDLE→CHASE→ATTACK→FLEE
+python tests/test_radar.py          # radar: projeção mundo→disco, clamp, relação de facção
+python tests/test_supercruise.py    # supercruise: entrada, aceleração, drop seguro (ADR 010)
+python tests/test_audio.py          # áudio por eventos: mapa, cooldown, tolerância a falhas (ADR 009)
+python tests/test_exploration.py    # POIs, fog-of-war, descoberta, drops, cartografia (ADR 011)
+python tests/test_starmap.py        # matemática do mapa: bounds, projeção, clamp (ADR 011)
 
 # Outros testes:
+python tests/test_cartography.py    # compra de cartografia na estação (pygame dummy)
 python tests/test_foundation.py     # EventBus + GameLoop + DataLoader
 python tests/test_missions.py       # geração e ciclo de missões
 python tests/test_procedural.py     # geração de universo
@@ -189,6 +226,26 @@ Cada sprite tem 9 camadas: sombra, casco escuro, casco principal, highlight supe
 Para adicionar uma nova classe de nave: edite `SHIP_PROFILES` em `sprite_generator.py`.
 Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 
+## Sistema de áudio (SFX por eventos)
+
+O `systems/audio_manager.py` (`AudioManager`) é um **consumidor puro de eventos**
+do EventBus: nenhum sistema de gameplay conhece áudio — eles já emitem eventos
+(`WEAPON_FIRED`, `SHIP_DESTROYED`, `DOCKED`, `BOOST_ACTIVATED`, etc.) e o
+`AudioManager` mapeia evento → som via `data/audio.json`.
+
+É **tolerante a falhas**: sem `pygame.mixer` (CI/headless) ou com arquivo
+faltando, o jogo roda em silêncio sem crashar. Os WAVs em `assets/audio/` são
+**placeholders sintéticos** gerados por `tools/gen_placeholder_sfx.py` (stdlib
+pura, sem numpy) — versionados para o jogo ter som "out of the box"; troque por
+arte final mantendo os nomes de arquivo. Para regerar:
+
+```bash
+python tools/gen_placeholder_sfx.py
+```
+
+Veja o ADR 009 para a decisão de design (boot inicializa o mixer uma vez; o
+`AudioManager` é por mundo e não duplica sons ao reiniciar).
+
 ## Status — v1.0
 
 - ✅ Arquitetura modular: EventBus, GameLoop, DataLoader, SaveManager, InputConfig
@@ -205,12 +262,18 @@ Para adicionar uma nova facção: edite `palettes` em `palette_manager.py`.
 - ✅ **Condição de vitória**: completar 5 bounties → epílogo de fim de jogo (ver ADR 006)
 - ✅ **ProgressionManager**: rastreia objetivo, persiste no save, não reemite ao carregar
 - ✅ Versão Pygame jogável: movimento vetorial, parallax, VFX, HUD, câmera
-- ⚠️ `tests/test_factions.py` e `tests/test_universe_ai.py` desatualizados (APIs antigas)
+- ✅ **Boost de propulsor** com capacitor dedicado (ver ADR 007)
+- ✅ **Radar de proximidade** com blips por relação de facção (ver ADR 008)
+- ✅ **Áudio por eventos** (SFX desacoplados, tolerante a falhas — ver ADR 009)
+- ✅ **Supercruise**: viagem rápida intra-setor com drop automático (ver ADR 010)
+- ✅ **Mapa estelar + exploração**: POIs com fog-of-war, descoberta por
+  proximidade/drop/cartografia (ver ADR 011)
+- ✅ Suíte de testes headless cobrindo facções multi-eixo e FSM da IA (atualizados)
 
 ## Próximos passos sugeridos
 
 1. Visualização de dano progressivo nos sprites (DamageStateRenderer)
-2. Sons (módulo `audio_engine`)
+2. Música de fundo + UI de settings (volume/mute) usando o `AudioManager`
 3. Múltiplos slots de save com gerenciamento (deletar/renomear)
 4. NPCs Tier 2 (Stingrays piratas como spawns de elite)
-5. Mapa estelar / sistema de viagem entre setores
+5. Galáxia multi-sistema (Escopo B do ADR 011): jump drive + universe_generator

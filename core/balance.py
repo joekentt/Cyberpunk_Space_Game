@@ -2,7 +2,8 @@
 balance — números de balanceamento de combate, data-driven.
 
 Carrega `data/balance.json` uma vez (singleton `balance`) e expõe as seções
-`firepower`, `ai` e `shield`. No mesmo espírito do `InputConfig`, é TOLERANTE A
+`firepower`, `ai`, `shield`, `boost`, `radar` e `supercruise`. No mesmo
+espírito do `InputConfig`, é TOLERANTE A
 FALHAS: se o arquivo faltar ou estiver corrompido, usa `DEFAULTS` e o jogo nunca
 quebra. Chaves ausentes no JSON também caem no default por seção (merge raso).
 
@@ -32,6 +33,32 @@ DEFAULTS: Dict[str, Dict[str, Any]] = {
     "shield": {
         "base_recharge": 6.0,
     },
+    "boost": {
+        "force_mult": 2.6,
+        "duration": 0.8,
+        "cost": 1.0,
+        "max_charge": 3.0,
+        "recharge_per_s": 0.5,
+        "cooldown": 0.4,
+    },
+    "radar": {
+        "range": 2000.0,
+    },
+    "supercruise": {
+        "speed_mult": 40.0,
+        "max_speed": 6000.0,
+        "accel": 4000.0,
+        "spool_up_s": 2.0,
+        "drop_radius": 320.0,
+        "exit_offset": 260.0,
+        "min_entry_distance": 360.0,
+    },
+    "exploration": {
+        "discover_radius": 700.0,
+        "location_drop_chance": 0.15,
+        "cartography_price": 4000,
+        "cartography_reveal_count": 3,
+    },
 }
 
 _DEFAULT_PATH = os.path.join(
@@ -47,6 +74,10 @@ class Balance:
         self.firepower: Dict[str, Any] = {}
         self.ai: Dict[str, Any] = {}
         self.shield: Dict[str, Any] = {}
+        self.boost: Dict[str, Any] = {}
+        self.radar: Dict[str, Any] = {}
+        self.supercruise: Dict[str, Any] = {}
+        self.exploration: Dict[str, Any] = {}
         self.load()
 
     def load(self):

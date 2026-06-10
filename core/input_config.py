@@ -27,8 +27,12 @@ class InputConfig:
         "rotate_right": "d",
         "strafe_left": "q",
         "strafe_right": "e",
+        "boost": "left shift",
         "shoot": "space",
         "dock_toggle": "f",
+        "toggle_radar": "r",
+        "supercruise_toggle": "j",
+        "starmap_toggle": "m",
         "pause": "escape",
     }
 
@@ -40,8 +44,12 @@ class InputConfig:
         "rotate_right": "Girar à direita",
         "strafe_left": "Strafe esquerda",
         "strafe_right": "Strafe direita",
+        "boost": "Boost (propulsor)",
         "shoot": "Disparar",
         "dock_toggle": "Acoplar / Desacoplar",
+        "toggle_radar": "Radar (liga/desliga)",
+        "supercruise_toggle": "Supercruise (entrar/sair)",
+        "starmap_toggle": "Mapa estelar",
         "pause": "Pausar",
     }
 

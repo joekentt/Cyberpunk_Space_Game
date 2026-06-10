@@ -22,5 +22,39 @@
     "shield": {
         "_comment": "Recarga de escudo do player (EnergyManager). Escala com pips de shields (pips/2.0).",
         "base_recharge": 6.0
+    },
+
+    "boost": {
+        "_comment": "Boost de propulsor (PlayerManager). force_mult escala o empuxo frontal durante o boost; cost consome do capacitor; recharge_per_s recarrega por segundo e escala com pips de engines; duration é o tempo de pico; cooldown bloqueia re-ativação.",
+        "force_mult": 2.6,
+        "duration": 0.8,
+        "cost": 1.0,
+        "max_charge": 3.0,
+        "recharge_per_s": 0.5,
+        "cooldown": 0.4
+    },
+
+    "radar": {
+        "_comment": "Radar de proximidade (visual_engine/radar.py). range = alcance em unidades de mundo; blips além disso grudam na borda do disco. NÃO é o alcance de detecção da IA (ver ai.detection_range) — é só ajuda de UX.",
+        "range": 2000.0
+    },
+
+    "supercruise": {
+        "_comment": "Viagem rápida intra-setor (ADR 010). accel acelera o player ao longo da proa até max_speed; spool_up_s é o tempo de carga ao entrar; drop_radius força saída perto de massa (deve ser > maior docking_radius + folga); exit_offset posiciona a nave longe o suficiente para não acoplar sozinha (deve ser > docking_radius); min_entry_distance impede engatar colado a massa.",
+        "speed_mult": 40.0,
+        "max_speed": 6000.0,
+        "accel": 4000.0,
+        "spool_up_s": 2.0,
+        "drop_radius": 320.0,
+        "exit_offset": 260.0,
+        "min_entry_distance": 360.0
+    },
+
+    "exploration": {
+        "_comment": "Exploração e fog-of-war (ADR 011). discover_radius = raio de descoberta por proximidade; location_drop_chance = chance de naves destruídas soltarem dados de localização (revela 1 POI oculto); cartography_price/reveal_count = compra de cartografia na estação.",
+        "discover_radius": 700.0,
+        "location_drop_chance": 0.15,
+        "cartography_price": 4000,
+        "cartography_reveal_count": 3
     }
 }

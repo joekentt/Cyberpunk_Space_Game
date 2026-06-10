@@ -1,0 +1,14 @@
+{
+    "_comment": "Mapa evento->som e volumes (ADR 009). Data-driven e tolerante a falhas: arquivo/sample ausente ou pygame.mixer indisponível => silêncio, sem crash. Os WAVs em assets/audio/ são PLACEHOLDERS sintéticos (tools/gen_placeholder_sfx.py) — troque por arte final depois. cooldown (s) opcional evita empilhar samples (ex.: tiros).",
+    "master_volume": 0.8,
+    "sounds": {
+        "WEAPON_FIRED":      {"file": "laser_small.wav", "volume": 0.4, "cooldown": 0.05},
+        "PROJECTILE_HIT":    {"file": "impact.wav",      "volume": 0.5, "cooldown": 0.03},
+        "SHIP_DESTROYED":    {"file": "explosion.wav",   "volume": 0.8},
+        "DOCKED":            {"file": "dock.wav",        "volume": 0.6},
+        "BOOST_ACTIVATED":   {"file": "boost.wav",       "volume": 0.6},
+        "MISSION_COMPLETED": {"file": "mission_ok.wav",  "volume": 0.7},
+        "GAME_COMPLETED":    {"file": "victory.wav",     "volume": 0.9},
+        "PIPS_CHANGED":      {"file": "blip.wav",        "volume": 0.3, "cooldown": 0.05}
+    }
+}

@@ -45,7 +45,8 @@ def build_save_payload(player_ship: Ship,
                        last_docked_station_id: Optional[str] = None,
                        camera_offset=None,
                        pilot: Optional[Dict[str, Any]] = None,
-                       progression: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                       progression: Optional[Dict[str, Any]] = None,
+                       exploration: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Monta o dict de save completo a partir do estado vivo dos managers.
 
@@ -53,6 +54,8 @@ def build_save_payload(player_ship: Ship,
     `credits` é extraído de `player_ship.credits` (fonte única de verdade).
     `pilot` é a identidade do piloto (Ciclo D); default {"name": "Piloto"}.
     `progression` é o estado do ProgressionManager (Ciclo E); campo aditivo.
+    `exploration` é o estado do ExplorationManager (ADR 011); campo aditivo —
+    saves antigos sem ele carregam com o default (só estações descobertas).
     """
     return {
         "version": SAVE_VERSION,
@@ -66,6 +69,7 @@ def build_save_payload(player_ship: Ship,
         "last_docked_station_id": last_docked_station_id,
         "camera_offset": list(camera_offset) if camera_offset else [0.0, 0.0],
         "progression": dict(progression) if progression else {},
+        "exploration": dict(exploration) if exploration else {},
     }
 
 

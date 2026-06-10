@@ -37,10 +37,11 @@ def main():
     assert cfg.get("thrust_back") == "s"
     assert cfg.get("strafe_left") == "q"
     assert cfg.get("strafe_right") == "e"
+    assert cfg.get("boost") == "left shift"
     assert cfg.get("shoot") == "space"
     assert cfg.get("dock_toggle") == "f"
     assert cfg.get("pause") == "escape"
-    print("  todos os padrões corretos (W/S/A/D/Q/E/ESPAÇO/F/ESC)  ✓")
+    print("  todos os padrões corretos (W/S/A/D/Q/E/SHIFT/ESPAÇO/F/ESC)  ✓")
 
     # ------------------------------------------------------------------
     # 2) Rebind + save persiste em nova instância (simula reiniciar o jogo)
