@@ -9,6 +9,8 @@ Roda SEM exigir device de som. Valida:
      toca de novo (play_fn e time_fn injetados — sem hardware).
   5. Arquivo inexistente no mapa → entrada ignorada, sem crash.
   6. Recriar o AudioManager (novo mundo) após limpar o bus NÃO duplica plays.
+  7. Variantes por payload: BOOST_ACTIVATED com model_id conhecido toca o
+     boost daquela nave; desconhecido/ausente cai no arquivo padrão.
 """
 import os
 import sys
@@ -62,7 +64,7 @@ def main():
     plays = []
     am4 = AudioManager(
         enabled=False,                       # default play seria no-op; usamos o fake
-        play_fn=lambda evt, vol: plays.append((evt, vol)),
+        play_fn=lambda evt, vol, fname: plays.append((evt, vol, fname)),
         time_fn=lambda: clock["t"],
     )
     cd = float(am4.sounds_cfg["WEAPON_FIRED"].get("cooldown", 0.0))
@@ -108,9 +110,9 @@ def main():
     am5 = AudioManager(
         audio_dir=tmpdir, config_path=cfg_path,
         enabled=True,                         # força tentativa de load de samples
-        play_fn=lambda evt, vol: got.append(evt),
+        play_fn=lambda evt, vol, fname: got.append(evt),
     )
-    assert "WEAPON_FIRED" not in am5._samples, "sample inexistente não deveria carregar"
+    assert "nao_existe_xyz.wav" not in am5._samples, "sample inexistente não deveria carregar"
     bus.emit("WEAPON_FIRED", {})              # não deve crashar
     print("  ✓ entrada com arquivo ausente ignorada no load; emit sem crash")
 
@@ -120,12 +122,43 @@ def main():
     print("\n[6] Recriar o mundo (bus limpo) não duplica sons")
     bus._listeners.clear()
     plays2 = []
-    AudioManager(enabled=False, play_fn=lambda e, v: plays2.append(e))
+    AudioManager(enabled=False, play_fn=lambda e, v, f: plays2.append(e))
     bus._listeners.clear()                     # simula _build_world_systems
-    AudioManager(enabled=False, play_fn=lambda e, v: plays2.append(e))
+    AudioManager(enabled=False, play_fn=lambda e, v, f: plays2.append(e))
     bus.emit("DOCKED", {})
     assert len(plays2) == 1, f"esperado 1 play (sem duplicação), veio {len(plays2)}"
     print("  ✓ um único play por evento após recriação")
+
+    # ------------------------------------------------------------------
+    # 7) Variantes por payload (identidade de propulsor por nave)
+    # ------------------------------------------------------------------
+    print("\n[7] Variantes: boost por model_id; fallback no padrão")
+    bus._listeners.clear()
+    plays3 = []
+    am7 = AudioManager(enabled=False,
+                       play_fn=lambda e, v, f: plays3.append((e, f)))
+    cfg_boost = am7.sounds_cfg["BOOST_ACTIVATED"]
+    assert cfg_boost.get("by") == "model_id", "boost deveria variar por model_id"
+    variants = cfg_boost["variants"]
+    assert len(variants) >= 6, "esperado um boost por nave"
+
+    bus.emit("BOOST_ACTIVATED", {"model_id": "starter_skiff"})
+    assert plays3[-1] == ("BOOST_ACTIVATED", variants["starter_skiff"]), plays3[-1]
+    bus.emit("BOOST_ACTIVATED", {"model_id": "mule_trader"})
+    assert plays3[-1][1] == variants["mule_trader"]
+    assert variants["starter_skiff"] != variants["mule_trader"], \
+        "cada nave deveria ter um boost próprio"
+    # model_id desconhecido/ausente → arquivo padrão
+    bus.emit("BOOST_ACTIVATED", {"model_id": "nave_inexistente"})
+    assert plays3[-1][1] == cfg_boost["file"], plays3[-1]
+    bus.emit("BOOST_ACTIVATED", {})
+    assert plays3[-1][1] == cfg_boost["file"], plays3[-1]
+    # todos os WAVs de variante existem no assets/audio
+    audio_dir = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "assets", "audio")
+    for f in list(variants.values()) + [cfg_boost["file"]]:
+        assert os.path.isfile(os.path.join(audio_dir, f)), f"falta {f}"
+    print(f"  ✓ {len(variants)} variantes mapeadas; fallback OK; WAVs presentes")
 
     print("\nTeste de áudio: OK")
 

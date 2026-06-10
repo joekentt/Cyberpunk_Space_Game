@@ -53,11 +53,43 @@ sem numpy nem pygame). Esses placeholders **são versionados** em `assets/audio/
 para o jogo rodar com som "out of the box"; troca-se por arte final depois
 (mesmos nomes de arquivo). Marcados como placeholder no `data/audio.json`.
 
+### Variantes por payload (identidade sonora por nave) — adendo 2026-06-10
+
+Os placeholders iniciais soavam genéricos ("bip de brinquedo"); a intenção do
+jogo é cada nave ter identidade própria de propulsor. Em vez de criar eventos
+novos por nave (`BOOST_SKIFF`, ...), uma entrada do `data/audio.json` pode
+declarar:
+
+```json
+"BOOST_ACTIVATED": {
+    "file": "boost.wav", "volume": 0.6,
+    "by": "model_id",
+    "variants": {"starter_skiff": "boost_skiff.wav", ...}
+}
+```
+
+O `AudioManager` escolhe o arquivo pelo campo `by` do **payload** do evento;
+valor desconhecido/ausente cai no `file` padrão (nunca silencia por engano).
+Para isso, `BOOST_ACTIVATED` e `WEAPON_FIRED` passaram a carregar `model_id`
+(uma linha em cada emissor — o gameplay continua sem conhecer áudio). Os
+samples internos passaram a ser indexados por **arquivo** (não por evento), e
+o cooldown continua por evento. O mecanismo é genérico: variantes por
+`weapon_type` (tiros por arma) ficam a uma entrada de JSON de distância.
+
+O gerador (`tools/gen_placeholder_sfx.py`) ganhou DSP de verdade — filtro
+passa-baixa one-pole, saturação tanh e `engine_burst` (rumble com spool-up de
+pitch + ruído de exaustão + "throb" de combustão) — e produz 1 boost por nave
+(`BOOST_VARIANTS`: Skiff ágil, Wasp rasgado, Mule industrial grave, Albatross
+de spool longo, Stingray sibilante, Terraformador pulsante). O tiro
+(`laser_shot`) virou 3 camadas: transiente de ruído + corpo harmônico com
+queda exponencial de pitch + sub-thump.
+
 ### Injeção para testabilidade
 
-O `AudioManager` aceita `play_fn` (default = tocar de verdade; no teste =
-registrar chamadas) e `time_fn` (default = `time.monotonic`). Assim a lógica de
-mapeamento e cooldown é testada **sem hardware de áudio**.
+O `AudioManager` aceita `play_fn(evt, volume, fname)` (default = tocar de
+verdade; no teste = registrar chamadas) e `time_fn` (default =
+`time.monotonic`). Assim a lógica de mapeamento, variantes e cooldown é
+testada **sem hardware de áudio**.
 
 ## Alternativas consideradas
 

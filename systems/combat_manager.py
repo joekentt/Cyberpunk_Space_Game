@@ -131,6 +131,7 @@ class CombatManager:
 
         bus.emit("WEAPON_FIRED", {
             "shooter_id": shooter.id,
+            "model_id": getattr(shooter, "model_id", None),
             "weapon_type": template["type"],
             "position": list(proj.position),
             "color": template["color"],

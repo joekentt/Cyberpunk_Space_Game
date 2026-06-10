@@ -235,12 +235,25 @@ nenhum sistema de gameplay conhece áudio. Os managers já emitem eventos
   recriar o mundo (novo jogo 2×) **não duplica sons**.
 - **Data-driven:** `data/audio.json` traz `master_volume` e, por evento,
   `file`/`volume`/`cooldown` (s). O `cooldown` evita empilhar samples (ex.: tiros).
-- **Assets placeholder:** `tools/gen_placeholder_sfx.py` gera 8 WAVs sintéticos
-  curtos com **stdlib pura** (sem numpy/pygame), versionados em `assets/audio/`
-  para o jogo ter som "out of the box". Troque por arte final mantendo os nomes.
-- **Testabilidade:** o manager aceita injeção de `play_fn` (default = tocar;
-  teste = registrar chamadas) e `time_fn` (default = `time.monotonic`), então a
-  lógica de mapa/cooldown é testada sem hardware (`tests/test_audio.py`).
+- **Variantes por payload (identidade de propulsor):** uma entrada pode declarar
+  `"by": "<campo>"` + `"variants": {valor: arquivo}` — o arquivo é escolhido
+  pelo campo do payload do evento, com fallback no `file` padrão. Usado em
+  `BOOST_ACTIVATED` por `model_id`: **cada nave tem seu próprio som de boost**
+  (`boost_skiff.wav`, `boost_mule.wav`, ...). `BOOST_ACTIVATED` e `WEAPON_FIRED`
+  carregam `model_id` no payload para isso. Os samples internos são indexados
+  por arquivo; o cooldown segue por evento.
+- **Assets placeholder:** `tools/gen_placeholder_sfx.py` gera os WAVs sintéticos
+  com **stdlib pura** (sem numpy/pygame), versionados em `assets/audio/`
+  para o jogo ter som "out of the box". Tem DSP simples (lowpass one-pole,
+  saturação tanh): `engine_burst` produz o som de propulsor (rumble com
+  spool-up + ruído de exaustão + throb), parametrizado por nave em
+  `BOOST_VARIANTS`; `laser_shot` produz o tiro em 3 camadas (transiente +
+  corpo harmônico descendente + sub-thump). Troque por arte final mantendo os
+  nomes.
+- **Testabilidade:** o manager aceita injeção de `play_fn(evt, vol, fname)`
+  (default = tocar; teste = registrar chamadas) e `time_fn` (default =
+  `time.monotonic`), então a lógica de mapa/variantes/cooldown é testada sem
+  hardware (`tests/test_audio.py`).
 - `set_master_volume()` / `toggle_mute()` já existem para uma futura UI de settings.
 
 ### Como adicionar um novo SFX

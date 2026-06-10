@@ -88,7 +88,10 @@ class PlayerManager:
         self.boost_charge -= bp["cost"]
         self._boost_timer = bp["duration"]
         self._boost_cd = bp["cooldown"] + bp["duration"]  # cooldown começa após o boost
-        bus.emit("BOOST_ACTIVATED", {"boost_charge": self.boost_charge})
+        bus.emit("BOOST_ACTIVATED", {
+            "boost_charge": self.boost_charge,
+            "model_id": getattr(self.ship, "model_id", None),
+        })
         return True
 
     def _reallocate_pip(self, target_system: str):

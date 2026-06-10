@@ -17,9 +17,15 @@ Divisão de responsabilidade (armadilha do mixer):
     carrega os samples e se inscreve no bus. Como o `bus._listeners.clear()`
     roda antes de recriar, não há duplicação de sons ao reiniciar o jogo.
 
-Testabilidade: aceita injeção de `play_fn` (default = tocar de verdade; no
-teste = registrar chamadas) e `time_fn` (default = `time.monotonic`), evitando
-qualquer dependência de hardware de áudio.
+Variantes por payload (identidade sonora por nave): uma entrada do
+`data/audio.json` pode declarar `"by": "<campo_do_payload>"` e
+`"variants": {valor: arquivo}`. Ex.: `BOOST_ACTIVATED` com `by=model_id`
+toca um WAV de propulsor diferente por modelo de nave; valor desconhecido
+ou ausente cai no `file` padrão (nunca silencia por engano).
+
+Testabilidade: aceita injeção de `play_fn(evt, volume, fname)` (default =
+tocar de verdade; no teste = registrar chamadas) e `time_fn` (default =
+`time.monotonic`), evitando qualquer dependência de hardware de áudio.
 """
 import os
 import json
@@ -59,7 +65,7 @@ class AudioManager:
         self.master_volume: float = 0.8
         self.muted: bool = False
         self.sounds_cfg: Dict[str, Dict[str, Any]] = {}
-        self._samples: Dict[str, Any] = {}          # evt -> pygame.mixer.Sound
+        self._samples: Dict[str, Any] = {}          # filename -> pygame.mixer.Sound
         self._last_play: Dict[str, float] = {}       # evt -> instante do último play
 
         self._load_config()
@@ -100,6 +106,16 @@ class AudioManager:
         except Exception:
             return False
 
+    def _files_for(self, cfg: Dict[str, Any]):
+        """Todos os arquivos de uma entrada: o `file` padrão + as variantes."""
+        fnames = []
+        if cfg.get("file"):
+            fnames.append(cfg["file"])
+        variants = cfg.get("variants")
+        if isinstance(variants, dict):
+            fnames.extend(v for v in variants.values() if isinstance(v, str))
+        return fnames
+
     def _load_samples(self):
         """Pré-carrega os Sounds existentes (latência baixa no play)."""
         try:
@@ -107,26 +123,26 @@ class AudioManager:
         except Exception:
             self.enabled = False
             return
-        for evt, cfg in self.sounds_cfg.items():
-            fname = cfg.get("file")
-            if not fname:
-                continue
-            path = os.path.join(self.audio_dir, fname)
-            if not os.path.isfile(path):
-                # Arquivo faltando: ignora esta entrada (sem crash).
-                continue
-            try:
-                self._samples[evt] = pygame.mixer.Sound(path)
-            except Exception:
-                # Sample corrompido/incompatível: ignora, segue sem som.
-                continue
+        for cfg in self.sounds_cfg.values():
+            for fname in self._files_for(cfg):
+                if fname in self._samples:
+                    continue
+                path = os.path.join(self.audio_dir, fname)
+                if not os.path.isfile(path):
+                    # Arquivo faltando: ignora esta entrada (sem crash).
+                    continue
+                try:
+                    self._samples[fname] = pygame.mixer.Sound(path)
+                except Exception:
+                    # Sample corrompido/incompatível: ignora, segue sem som.
+                    continue
 
     # ------------------------------------------------------------------ play
-    def _default_play(self, evt: str, volume: float):
+    def _default_play(self, evt: str, volume: float, fname: Optional[str] = None):
         """Play real (no-op se desabilitado, mudo ou sem sample)."""
         if not self.enabled or self.muted:
             return
-        snd = self._samples.get(evt)
+        snd = self._samples.get(fname) if fname else None
         if snd is None:
             return
         try:
@@ -135,7 +151,17 @@ class AudioManager:
         except Exception:
             pass
 
-    def _handle(self, evt: str):
+    def _resolve_file(self, cfg: Dict[str, Any], data: Any) -> Optional[str]:
+        """Escolhe o arquivo: variante pelo campo `by` do payload, ou o padrão."""
+        variants = cfg.get("variants")
+        by = cfg.get("by")
+        if isinstance(variants, dict) and by and isinstance(data, dict):
+            fname = variants.get(data.get(by))
+            if isinstance(fname, str):
+                return fname
+        return cfg.get("file")
+
+    def _handle(self, evt: str, data: Any = None):
         """Decide tocar `evt`: respeita cooldown e calcula o volume final."""
         cfg = self.sounds_cfg.get(evt)
         if cfg is None:
@@ -148,7 +174,7 @@ class AudioManager:
                 return
         self._last_play[evt] = now
         volume = self.master_volume * float(cfg.get("volume", 1.0))
-        self._play_fn(evt, volume)
+        self._play_fn(evt, volume, self._resolve_file(cfg, data))
 
     # ------------------------------------------------------------------ bus
     def _subscribe(self):
@@ -157,8 +183,8 @@ class AudioManager:
             bus.subscribe(evt, self._make_handler(evt))
 
     def _make_handler(self, evt: str) -> Callable[[Any], None]:
-        def handler(_data):
-            self._handle(evt)
+        def handler(data):
+            self._handle(evt, data)
         return handler
 
     # ------------------------------------------------------------------ API futura (settings)
