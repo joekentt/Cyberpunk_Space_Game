@@ -323,6 +323,7 @@ python tests/test_combat_balance.py   # duelo justo Skiff vs pirata (Ciclo B)
 python tests/test_economy_loop.py
 python tests/test_hardpoints.py
 python tests/test_save_load.py
+python tests/test_save_multislot.py   # 3 slots: metadados, delete, retro-compat (ADR 012)
 python tests/test_menu_flow.py        # menu, criação de piloto, novo/carregar (Ciclo D)
 ```
 
@@ -404,9 +405,10 @@ jogador sai da tela (o loop então volta para `"paused"`).
 |---|---|
 | `"main_menu"` | Menu principal — **estado inicial**; o mundo ainda não existe |
 | `"pilot_creation"` | Tela de criação de piloto (digita o nome → `start_new_game`) |
-| `"load_menu"` | Lista de saves; ENTER chama `load_game(slot)` |
+| `"load_menu"` | Tela de 3 slots (modo load); ENTER carrega, DEL apaga (ver ADR 012) |
 | `"playing"` | Gameplay normal; inputs contínuos ativos |
 | `"paused"` | Menu de pausa (CONTINUAR / SALVAR / SALVAR E SAIR PARA O MENU / TECLAS / SAIR) |
+| `"save_menu"` | Mesma tela de slots em modo save (aberta pela pausa); mundo congelado; ESC volta a `"paused"` (ver ADR 012) |
 | `"keybinds"` | Tela de remapeamento; `_keybinds_return` diz se volta a `"paused"` ou `"main_menu"` |
 | `"docked"` | UI da estação aberta; lógica de jogo pausada |
 | `"dying"` | Animação de morte (3 s) antes do respawn |

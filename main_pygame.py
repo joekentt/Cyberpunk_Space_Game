@@ -62,7 +62,8 @@ WIDTH, HEIGHT = 960, 640
 BG_COLOR = (8, 8, 18)
 STARTING_CREDITS = 50000
 DEATH_PENALTY_PCT = 0.10   # perde 10% dos créditos ao morrer
-SAVE_SLOT = 1              # Ciclo C: slot único. Multi-slot é do Ciclo D.
+SAVE_SLOT = 1              # slot padrão (fallback do "salvar e sair")
+NUM_SLOTS = 3              # Bloco F: slots de save disponíveis (ADR 012)
 
 
 class SpaceRPGVisual:
@@ -97,6 +98,9 @@ class SpaceRPGVisual:
 
         # Persistência (save/load)
         self.save_mgr = SaveManager(save_dir=os.path.join(os.path.dirname(__file__), "saves"))
+        # Slot "ativo" da sessão: setado ao carregar/salvar; usado pelo
+        # "SALVAR E SAIR" (que não passa pela tela de slots).
+        self.current_slot = SAVE_SLOT
 
         # Dados estáticos reusados a cada novo jogo (carregados uma vez)
         missions_path = os.path.join(os.path.dirname(__file__), "data", "mission_templates.json")
@@ -279,23 +283,24 @@ class SpaceRPGVisual:
         return None
 
     def _save_entries(self):
-        """Monta a lista de saves para a LoadMenuUI (nome, créditos, data)."""
+        """
+        Monta a lista de slots para a LoadMenuUI: sempre NUM_SLOTS linhas,
+        preenchidas via `save_metadata` (leve — não aplica o jogo) ou vazias.
+        """
         entries = []
-        for fname in self.save_mgr.list_saves():
-            slot = self._slot_from_filename(fname)
-            if slot is None:
-                continue
-            try:
-                payload = self.save_mgr.load_game(slot)
-            except Exception:
-                continue
-            entries.append({
-                "slot": slot,
-                "pilot": payload.get("pilot", {}).get("name", "?"),
-                "credits": payload.get("credits", 0),
-                "saved_at": payload.get("saved_at"),
-            })
-        entries.sort(key=lambda e: e["slot"])
+        for slot in range(1, NUM_SLOTS + 1):
+            meta = self.save_mgr.save_metadata(slot)
+            if meta is None:
+                entries.append({"slot": slot, "empty": True})
+            else:
+                entries.append({
+                    "slot": slot,
+                    "pilot": meta["pilot_name"],
+                    "credits": meta["credits"],
+                    "saved_at": meta["saved_at"],
+                    "bounties": meta["progress"]["bounties_completed"],
+                    "completed": meta["progress"]["game_completed"],
+                })
         return entries
 
     def _activate_main_menu(self, action: str):
@@ -303,7 +308,7 @@ class SpaceRPGVisual:
             self.pilot_creation_ui.open()
             self.game_state = "pilot_creation"
         elif action == "load":
-            self.load_menu_ui.open(self._save_entries())
+            self.load_menu_ui.open(self._save_entries(), mode="load")
             self.game_state = "load_menu"
         elif action == "keybinds":
             self.keybinds_ui.open()
@@ -472,10 +477,12 @@ class SpaceRPGVisual:
         if key == "resume":
             self.game_state = "playing"
         elif key == "save":
-            self._save_game()
-            self.game_state = "playing"
+            # Bloco F: salvar abre a seleção de slot (volta a "paused" no ESC)
+            self.load_menu_ui.open(self._save_entries(), mode="save")
+            self.game_state = "save_menu"
         elif key == "save_quit_menu":
-            self._save_game()
+            # Sem tela de slots aqui: usa o slot ativo da sessão
+            self._save_game(self.current_slot)
             self._go_main_menu()
         elif key == "keybinds":
             self.keybinds_ui.open()
@@ -503,8 +510,9 @@ class SpaceRPGVisual:
             exploration=self.exploration_mgr.get_save_data() if self.exploration_mgr else {},
         )
         self.save_mgr.save_game(slot, payload)
+        self.current_slot = slot
         self._floating_texts.append({
-            "text": "JOGO SALVO",
+            "text": f"JOGO SALVO (SLOT {slot})",
             "pos": list(player.position),
             "timer": 2.2,
             "color": (120, 220, 255),
@@ -551,6 +559,7 @@ class SpaceRPGVisual:
         if offset:
             self.camera.offset = list(offset)
 
+        self.current_slot = slot
         self.game_state = "playing"
         player = self.universe.entities[self.player_id]
         self._floating_texts.append({
@@ -590,8 +599,25 @@ class SpaceRPGVisual:
                     if not self.load_game(res[1]):
                         # falhou — volta ao menu (não deveria ocorrer)
                         self._go_main_menu()
+                elif isinstance(res, tuple) and res[0] == "delete":
+                    self.save_mgr.delete_save(res[1])
+                    self.load_menu_ui.open(self._save_entries(), mode="load")
                 elif res == "back":
                     self._go_main_menu()
+                continue
+
+            # Tela de slots para SALVAR (aberta pelo menu de pausa — Bloco F)
+            if self.game_state == "save_menu":
+                res = self.load_menu_ui.handle_event(ev)
+                if isinstance(res, tuple) and res[0] == "save":
+                    self._save_game(res[1])
+                    self.game_state = "playing"
+                elif isinstance(res, tuple) and res[0] == "delete":
+                    self.save_mgr.delete_save(res[1])
+                    self.load_menu_ui.open(self._save_entries(), mode="save")
+                elif res == "back":
+                    self._pause_selection = 0
+                    self.game_state = "paused"
                 continue
 
             # UI da estação consome eventos quando acoplado
@@ -669,7 +695,7 @@ class SpaceRPGVisual:
 
             # Tecla de debug para carregar o save (Ciclo D dará UI dedicada)
             if ev.key == pygame.K_F9:
-                self.load_game()
+                self.load_game(self.current_slot)
                 continue
 
             if ev.key == self._key("dock_toggle"):
@@ -1164,6 +1190,11 @@ class SpaceRPGVisual:
 
         if self.game_state == "paused":
             self._draw_pause_menu()
+        elif self.game_state == "save_menu":
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 170))
+            self.screen.blit(overlay, (0, 0))
+            self.load_menu_ui.draw(self.screen)
         elif self.game_state == "keybinds":
             self.keybinds_ui.draw(self.screen)
         elif self.game_state == "docked":
@@ -1442,7 +1473,7 @@ class SpaceRPGVisual:
         self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 96)))
 
     def _draw_controls(self):
-        if self.game_state in ("docked", "paused", "keybinds"):
+        if self.game_state in ("docked", "paused", "keybinds", "save_menu"):
             return  # UI da estação / pausa / keybinds cuida do próprio help
         lines = [
             "W/S = throttle (frente/ré)",

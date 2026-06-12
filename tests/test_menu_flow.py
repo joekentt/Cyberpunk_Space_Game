@@ -78,13 +78,15 @@ def main():
     assert game.player_id is None and game.universe is None
     print("  ✓ salvou e voltou ao menu (mundo descartado)")
 
-    # A lista de saves deve trazer o nome do piloto e os créditos
+    # A lista de slots tem sempre NUM_SLOTS linhas (Bloco F): a 1 preenchida
+    # com piloto/créditos, as demais vazias.
     entries = game._save_entries()
-    assert len(entries) == 1, entries
+    assert len(entries) == 3, entries
     assert entries[0]["pilot"] == "Nova Pilota", entries[0]
     assert entries[0]["credits"] == 98765, entries[0]
+    assert entries[1].get("empty") and entries[2].get("empty"), entries
     print(f"  ✓ menu de load lista: piloto '{entries[0]['pilot']}', "
-          f"{entries[0]['credits']} cr")
+          f"{entries[0]['credits']} cr; slots 2-3 vazios")
 
     ok = game.load_game(entries[0]["slot"])
     assert ok, "load_game retornou False"

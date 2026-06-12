@@ -134,12 +134,20 @@ piloto, digite o nome (até 16 caracteres; vazio vira "Piloto") e `ENTER`.
 | Opção | Efeito |
 |---|---|
 | CONTINUAR | Fecha o menu e volta ao jogo |
-| SALVAR JOGO | Grava o estado no slot único |
-| SALVAR E SAIR PARA O MENU | Salva e volta ao menu principal (sem fechar o jogo) |
+| SALVAR JOGO | Abre a **seleção de slot** (3 slots); slot ocupado pede confirmação de sobrescrita |
+| SALVAR E SAIR PARA O MENU | Salva no **slot ativo da sessão** e volta ao menu principal |
 | CONFIGURAR TECLAS | Abre a tela de remapeamento de keybinds |
 | SAIR DO JOGO | Encerra o programa |
 
-> Durante o jogo, **F9** recarrega o último save (atalho de debug).
+> Durante o jogo, **F9** recarrega o save do slot ativo (atalho de debug).
+
+### Slots de save (3)
+
+Tanto a tela de **CARREGAR JOGO** (menu principal) quanto a de **SALVAR JOGO**
+(pausa) listam os 3 slots com piloto, créditos, progresso (caçadas) e data —
+ou "— vazio —". Navegação: `↑↓` + `ENTER`; **DEL/BACKSPACE** apaga um slot
+(com confirmação). Saves antigos de slot único continuam carregando no slot 1
+(ver ADR 012).
 
 ### Configurar Teclas
 
@@ -183,6 +191,7 @@ python tests/test_movement.py       # strafe, ré, hierarquia de empuxo
 python tests/test_boost.py          # boost de propulsor: capacitor, cooldown, recarga
 python tests/test_input_config.py   # keybindings: padrões, persistência, conflitos
 python tests/test_save_load.py      # save/load completo: nave, créditos, missões, reputação
+python tests/test_save_multislot.py # 3 slots: metadados, delete, retro-compat (ADR 012)
 python tests/test_menu_flow.py      # menu principal, criação de piloto, novo/carregar jogo
 python tests/test_progression_v1.py # progressão e condição de vitória (Ciclo E)
 python tests/test_factions.py       # reputação multi-eixo, market/dock, flags, persistência
@@ -268,12 +277,12 @@ Veja o ADR 009 para a decisão de design (boot inicializa o mixer uma vez; o
 - ✅ **Supercruise**: viagem rápida intra-setor com drop automático (ver ADR 010)
 - ✅ **Mapa estelar + exploração**: POIs com fog-of-war, descoberta por
   proximidade/drop/cartografia (ver ADR 011)
+- ✅ **3 slots de save** com metadados, sobrescrita confirmada e delete (ver ADR 012)
 - ✅ Suíte de testes headless cobrindo facções multi-eixo e FSM da IA (atualizados)
 
 ## Próximos passos sugeridos
 
 1. Visualização de dano progressivo nos sprites (DamageStateRenderer)
 2. Música de fundo + UI de settings (volume/mute) usando o `AudioManager`
-3. Múltiplos slots de save com gerenciamento (deletar/renomear)
-4. NPCs Tier 2 (Stingrays piratas como spawns de elite)
-5. Galáxia multi-sistema (Escopo B do ADR 011): jump drive + universe_generator
+3. NPCs Tier 2 (Stingrays piratas como spawns de elite)
+4. Galáxia multi-sistema (Escopo B do ADR 011): jump drive + universe_generator
