@@ -6,14 +6,22 @@ Cria os efeitos em `assets/audio/` para o jogo ficar audível sem arte final.
 Troque por arte de verdade depois (mesmos nomes de arquivo do `data/audio.json`).
 
 DSP usado (tudo em float, mono, 22050 Hz):
-  - `lowpass`: filtro one-pole (ruído branco vira "exaustão" de motor).
-  - `softclip`: saturação tanh (dá "grit" de combustão aos harmônicos).
-  - `engine_burst`: receita de propulsor — rumble grave com rampa de pitch
-    (spool-up), harmônicos saturados, ruído filtrado e um "throb" (LFO de
-    amplitude) que imita pulsação de combustão. Cada nave usa parâmetros
-    próprios (ver BOOST_VARIANTS) → identidade sonora por propulsor.
+  - `lowpass` / `highpass`: filtros one-pole (shaping espectral).
+  - `softclip`: saturação tanh (grit e punch sem clipar).
+  - `engine_burst`: propulsor — rumble grave com spool-up de pitch, harmônicos
+    saturados, ruído de exaustão filtrado e throb de combustão. Parâmetros por
+    nave em BOOST_VARIANTS → identidade sonora por propulsor.
   - `laser_shot`: tiro em 3 camadas — transiente de ruído (estalo), corpo
-    harmônico com queda EXPONENCIAL de pitch e um sub-thump grave curto.
+    harmônico com queda exponencial de pitch, sub-thump grave.
+  - `explosion_sfx`: explosão em 4 camadas — shockwave (crack impulsivo de
+    banda larga), fireball (ruído de baixa frequência saturado, longo), ring
+    (par de ressonâncias metálicas amortecidas) e rumble sub-sonic.
+  - `impact_sfx`: colisão metálica — spike impulsivo + anel metálico alto-Q +
+    ruído de debris curto.
+  - `dock_sfx`: acoplamento de câmara — thud mecânico grave + sibilo hidráulico
+    (ruído passa-baixa) + confirmação tonal suave.
+  - `mission_sfx` / `victory_sfx`: síntese subtrativa com harmônicos ricos;
+    evitam os sinos de vidro do arpejo simples.
 
 Uso:
     python tools/gen_placeholder_sfx.py
@@ -186,8 +194,204 @@ def laser_shot(f0=900.0, f1=210.0, dur=0.16, seed=99):
     return out
 
 
+def highpass(samples, cutoff):
+    """Filtro passa-alta one-pole."""
+    a = 1.0 - math.exp(-2.0 * math.pi * cutoff / SAMPLE_RATE)
+    y, prev_x, prev_y = 0.0, 0.0, 0.0
+    out = []
+    for s in samples:
+        low = prev_y + a * (prev_x - prev_y)
+        out.append(s - low)
+        prev_x, prev_y = s, low
+    return out
+
+
+def _resonator(freq, dur, decay_tau=0.12, amp=0.5, seed=0):
+    """Par de frequências ressonantes (anel metálico amortecido)."""
+    total = _n(dur)
+    rnd = random.Random(seed)
+    env = [math.exp(-i / (SAMPLE_RATE * decay_tau)) for i in range(total)]
+    phase = rnd.uniform(0, 2 * math.pi)
+    return [amp * env[i] * math.sin(2 * math.pi * freq * i / SAMPLE_RATE + phase)
+            for i in range(total)]
+
+
+def _impulse(n_samples, width=3, seed=5):
+    """Spike impulsivo de banda larga (click de impacto)."""
+    rnd = random.Random(seed)
+    out = [0.0] * n_samples
+    for k in range(width):
+        idx = min(k, n_samples - 1)
+        out[idx] = rnd.uniform(0.6, 1.0) * (1.0 - k / width)
+    return out
+
+
+def explosion_sfx(dur=0.80, seed=42):
+    """
+    4 camadas:
+     1. Shockwave: crack impulsivo de banda larga (primeiros 30 ms).
+     2. Fireball: ruído grave saturado, longo e decrescente.
+     3. Ring: duas ressonâncias metálicas amortecidas.
+     4. Sub-rumble: senóide muito grave (40 Hz) em fade lento.
+    """
+    total = _n(dur)
+    rnd = random.Random(seed)
+
+    # 1. Shockwave: click de alta amplitude + highpass
+    n_shock = _n(0.03)
+    shock = [0.0] * total
+    for i in range(n_shock):
+        shock[i] = rnd.uniform(-1, 1) * math.exp(-i / (SAMPLE_RATE * 0.005))
+    shock = highpass(shock, 200.0)
+
+    # 2. Fireball: ruído branco → lowpass forte → saturação → envelope longo
+    raw = [rnd.uniform(-1, 1) for _ in range(total)]
+    fire = lowpass(raw, 350.0)
+    fire = softclip(fire, 3.5)
+    fire = [fire[i] * math.exp(-i / (SAMPLE_RATE * 0.35)) for i in range(total)]
+
+    # 3. Ring metálico: 2 ressonâncias
+    ring1 = _resonator(180, dur, decay_tau=0.18, amp=0.6, seed=1)
+    ring2 = _resonator(310, dur, decay_tau=0.10, amp=0.3, seed=2)
+
+    # 4. Sub-rumble 40 Hz
+    sub = [0.4 * math.sin(2 * math.pi * 40 * i / SAMPLE_RATE)
+           * math.exp(-i / (SAMPLE_RATE * 0.55)) for i in range(total)]
+
+    # mix ponderado
+    weights = [0.55, 0.55, 0.7, 0.7]
+    layers = [shock, fire, ring1, ring2]
+    out = [s * 0.5 for s in sub]
+    for w, layer in zip(weights, layers):
+        for i, s in enumerate(layer):
+            out[i] = out[i] + w * s if i < len(out) else out[i]
+
+    return [AMP * max(-1.0, min(1.0, s)) for s in out]
+
+
+def impact_sfx(seed=77):
+    """
+    Colisão metálica em 3 camadas:
+     1. Spike impulsivo de banda larga (punch inicial).
+     2. Anel metálico alto-Q (frequência de casco).
+     3. Debris: ruído branco curtíssimo (raspagem).
+    """
+    dur = 0.18
+    total = _n(dur)
+    rnd = random.Random(seed)
+
+    # 1. Spike
+    spike = _impulse(total, width=4, seed=seed)
+    spike = [s * math.exp(-i / (SAMPLE_RATE * 0.008)) for i, s in enumerate(spike)]
+
+    # 2. Ring: frequência de ressonância de casco metálico
+    ring = _resonator(520, dur, decay_tau=0.06, amp=0.7, seed=seed + 1)
+
+    # 3. Debris: ruído alto curto
+    n_deb = _n(0.04)
+    debris = [rnd.uniform(-1, 1) * math.exp(-i / (SAMPLE_RATE * 0.012))
+              for i in range(n_deb)] + [0.0] * (total - n_deb)
+    debris = highpass(debris, 1200.0)
+
+    out = []
+    for i in range(total):
+        s = 0.9 * spike[i] + 0.65 * ring[i] + 0.35 * debris[i]
+        out.append(AMP * max(-1.0, min(1.0, s)))
+    return out
+
+
+def dock_sfx(seed=33):
+    """
+    Acoplamento de câmara em 3 fases:
+     1. Thud mecânico grave (impacto de andaime).
+     2. Sibilo hidráulico (ruído passa-baixa, 0.4 s).
+     3. Bip de confirmação suave (tom curto, não chiante).
+    """
+    rnd = random.Random(seed)
+
+    # 1. Thud: sub-grave saturado, ataque instantâneo
+    n_thud = _n(0.12)
+    phase = 0.0
+    thud = []
+    for i in range(n_thud):
+        phase += 2 * math.pi * 65 / SAMPLE_RATE
+        s = math.sin(phase) + 0.4 * math.sin(2 * phase)
+        s = math.tanh(s * 2.0)
+        thud.append(s * math.exp(-i / (SAMPLE_RATE * 0.055)))
+
+    # 2. Sibilo hidráulico
+    n_hiss = _n(0.42)
+    raw_h = [rnd.uniform(-1, 1) for _ in range(n_hiss)]
+    hiss = lowpass(raw_h, 380.0)
+    env_h = [math.exp(-i / (SAMPLE_RATE * 0.14)) for i in range(n_hiss)]
+    hiss = [hiss[i] * env_h[i] * 0.45 for i in range(n_hiss)]
+
+    # 3. Tom de confirmação: senoide com 3 harmônicos, curtinho
+    n_beep = _n(0.18)
+    beep = []
+    ph = 0.0
+    for i in range(n_beep):
+        ph += 2 * math.pi * 440 / SAMPLE_RATE
+        env_b = (1.0 - i / n_beep) ** 1.5
+        beep.append((math.sin(ph) + 0.3 * math.sin(2 * ph)) * 0.4 * env_b)
+
+    # sequência: thud | overlap ligeiro com hiss | beep ao fim do hiss
+    total = len(thud) + len(hiss)
+    out = [0.0] * total
+    for i, s in enumerate(thud):
+        out[i] += s
+    for i, s in enumerate(hiss):
+        out[i + len(thud)] += s
+    beep_start = len(thud) + len(hiss) - len(beep)
+    for i, s in enumerate(beep):
+        idx = beep_start + i
+        if idx < total:
+            out[idx] += s
+
+    return [AMP * max(-1.0, min(1.0, s)) for s in out]
+
+
+def _synth_chord(freqs, dur, decay=1.4, drive=1.6):
+    """Acorde de síntese subtrativa com harmônicos saturados."""
+    total = _n(dur)
+    out = [0.0] * total
+    for freq in freqs:
+        for i in range(total):
+            u = i / total
+            env = (1.0 - u) ** decay
+            s = (math.sin(2 * math.pi * freq * i / SAMPLE_RATE)
+                 + 0.5 * math.sin(2 * math.pi * 2 * freq * i / SAMPLE_RATE)
+                 + 0.25 * math.sin(2 * math.pi * 3 * freq * i / SAMPLE_RATE))
+            out[i] += env * math.tanh(s * drive) / (2.09 * len(freqs))
+    return [AMP * s for s in out]
+
+
+def mission_sfx():
+    """
+    Confirmação de missão: dois acordes cyberpunk (quinta + oitava),
+    com ataque rápido e decaimento amortecido — sem o timbre de sinos do
+    arpejo de toms simples.
+    """
+    silence = [0.0] * _n(0.035)
+    c1 = _synth_chord([261.6, 392.0, 523.2], dur=0.22, decay=1.5, drive=1.8)
+    c2 = _synth_chord([349.2, 523.2, 698.5], dur=0.38, decay=1.3, drive=1.6)
+    return _seq(c1, silence, c2)
+
+
+def victory_sfx():
+    """
+    Fanfarra de vitória: 3 acordes ascendentes ricos, com ataque percussivo
+    e decaimento modal (não toca como carrilhão).
+    """
+    gap = [0.0] * _n(0.04)
+    c1 = _synth_chord([130.8, 196.0, 261.6], dur=0.20, decay=1.2, drive=2.2)
+    c2 = _synth_chord([164.8, 246.9, 329.6], dur=0.22, decay=1.2, drive=2.0)
+    c3 = _synth_chord([196.0, 293.7, 392.0, 523.2], dur=0.55, decay=1.0, drive=1.8)
+    return _seq(c1, gap, c2, gap, c3)
+
+
 def _mix(*tracks):
-    """Soma vários tracks (alinha pelo mais longo), com clamp suave."""
+    """Soma vários tracks (alinha pelo mais longo), sem clamp (usa _normalize depois)."""
     n = max(len(t) for t in tracks)
     out = [0.0] * n
     for t in tracks:
@@ -239,27 +443,21 @@ BOOST_VARIANTS = {
 
 
 def main():
-    # Tiro: transiente + corpo harmônico descendente + sub-thump.
+    # Tiro laser: transiente + corpo harmônico descendente + sub-thump.
     _write_wav("laser_small.wav", laser_shot())
-    # Impacto: ruído curto seco.
-    _write_wav("impact.wav", noise(0.10, decay=3.0))
-    # Explosão: ruído longo + grave decaindo.
-    _write_wav("explosion.wav", _mix(noise(0.55, decay=1.6),
-                                     tone(90, 0.55, decay=1.8)))
-    # Dock: bip duplo confortável.
-    _write_wav("dock.wav", _seq(tone(660, 0.10, decay=1.2),
-                                [0.0] * _n(0.04),
-                                tone(880, 0.14, decay=1.2)))
+    # Impacto: spike metálico + anel + debris (colisão com casco).
+    _write_wav("impact.wav", impact_sfx())
+    # Explosão: shockwave + fireball + ring + sub-rumble.
+    _write_wav("explosion.wav", explosion_sfx())
+    # Dock: thud mecânico + sibilo hidráulico + confirmação tonal.
+    _write_wav("dock.wav", dock_sfx())
     # Boosts: um por nave + fallback genérico (identidade de propulsor).
     for fname, params in BOOST_VARIANTS.items():
         _write_wav(fname, engine_burst(**params))
-    # Missão concluída: arpejo de duas notas ascendentes.
-    _write_wav("mission_ok.wav", _seq(tone(523, 0.14, decay=1.0),
-                                      tone(784, 0.26, decay=1.2)))
-    # Vitória: fanfarra de 3 notas ascendentes.
-    _write_wav("victory.wav", _seq(tone(523, 0.16, decay=0.8),
-                                   tone(659, 0.16, decay=0.8),
-                                   tone(988, 0.45, decay=1.0)))
+    # Missão concluída: dois acordes cyberpunk saturados.
+    _write_wav("mission_ok.wav", mission_sfx())
+    # Vitória: fanfarra de 3 acordes ascendentes com harmônicos ricos.
+    _write_wav("victory.wav", victory_sfx())
     # Blip de UI (pips): muito curto.
     _write_wav("blip.wav", tone(1200, 0.05, decay=2.0))
 
