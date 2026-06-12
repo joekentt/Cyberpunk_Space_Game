@@ -2,7 +2,6 @@
 -- Seleção de alvo, postura (chase × manter distância) e magias de ataque.
 -- Continua ativo durante a emergência (revidar > fugir andando).
 
-local nextAttackSpellAt = 0   -- exhaust de grupo de ataque (~2 s)
 local lastChase = nil
 
 local function wantedSet()
@@ -100,14 +99,13 @@ macro(200, "Targeting", function()
     end
 
     -- ----- magias de ataque -----
-    local now = Bot.now()
-    if now < nextAttackSpellAt or not tpos then return end
+    if not tpos then return end
 
     local adjacent = 0
     for _, m in ipairs(mobs) do
         if Bot.dist(me, m:getPosition()) <= 1 then adjacent = adjacent + 1 end
     end
-    local reserve = Bot.manaReserve(prof)
+    local reserve = Bot.manaReserve(prof)   -- protege a mana de cura (abs. ou %)
     local targetDist = Bot.dist(me, tpos)
 
     for _, a in ipairs(prof.attacks or {}) do
@@ -115,12 +113,10 @@ macro(200, "Targeting", function()
         -- (magias de área); à distância: basta o alvo dentro do range
         local conditionMet = (a.range <= 1 and adjacent >= (a.minTargets or 1))
                 or (a.range > 1 and targetDist <= a.range)
-        if conditionMet
-                and Bot.level() >= a.level
-                and Bot.mana() >= a.mana + reserve then
-            Bot.say(a.words)
-            nextAttackSpellAt = now + 2100
-            break
+        -- nunca gasta a mana reservada para cura; level/mana exato e cooldown
+        -- ficam a cargo do tryCast (respeita gating e backoff por magia)
+        if conditionMet and Bot.mana() > reserve then
+            if Bot.tryCast(a.words, "attack", a.level, a.mana + reserve) then break end
         end
     end
 end)

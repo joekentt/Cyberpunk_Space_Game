@@ -42,6 +42,22 @@ addButton("⏯ Pausar / retomar bot", function()
 end)
 addSeparator()
 
+-- ----- inspetor (descobre IDs reais do servidor RubinOT-like) -----
+addButton("🔍 Inspecionar (voc + IDs de item)", function()
+    local i = Bot.inspect()
+    Bot.log("[EXP Bot] vocação=" .. tostring(i.voc)
+        .. " level=" .. tostring(i.level) .. " mana=" .. tostring(i.mana))
+    local slots = {}
+    for slot, id in pairs(i.slots or {}) do
+        table.insert(slots, slot .. "=" .. id)
+    end
+    Bot.log("[EXP Bot] equipamento (slot=id): " .. table.concat(slots, " "))
+    Bot.log("[EXP Bot] itens nos containers (ids): "
+        .. table.concat(i.containers or {}, " "))
+    Bot.log("[EXP Bot] anote os ids das suas poções e ajuste 01_config.lua")
+end)
+addSeparator()
+
 -- ----- gravação de rota -----
 addLabel("hint", "Grave a rota andando pelo respawn:")
 addButton("➕ WP caçada (aqui)", function() Cave.record("wp_hunt", "walk") end)

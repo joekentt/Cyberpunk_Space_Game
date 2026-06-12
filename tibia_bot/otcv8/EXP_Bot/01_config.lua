@@ -1,8 +1,24 @@
 -- 01_config.lua
 -- ÚNICO arquivo que você precisa editar no dia a dia.
 -- IDs de item abaixo são os padrões de servidores 10.x (TFS 1.x).
+--
+-- SERVIDOR RUBINOT-LIKE: os IDs de poção e o level/mana das magias podem
+-- diferir do padrão. Não precisa adivinhar: ligue o bot, clique em
+-- "🔍 Inspecionar" no painel e veja no console a sua vocação + os IDs reais
+-- dos seus itens. Preencha aqui só o que estiver diferente. O modo de cast
+-- "trust" (abaixo) já faz o bot funcionar mesmo sem você acertar level/mana.
 
 CFG = {
+
+    -- ===================== CAST (compat. servidor customizado) =====================
+    -- "trust"  → tenta lançar a magia e AUTO-DESCOBRE o que dá: se a mana não
+    --            cair, coloca a magia em backoff (20 s) e usa a de baixo.
+    --            Ideal para RubinOT-like, onde não sabemos level/mana exatos.
+    -- "strict" → só lança se level/mana do perfil baterem (TFS vanilla).
+    castGating = "trust",
+    -- Em modo "trust", fração da mana máxima sempre reservada para CURA
+    -- (não gasta em ataque). 0.30 = guarda 30% da mana para se curar.
+    manaReservePercent = 0.30,
 
     -- ===================== ALVOS =====================
     attack = {

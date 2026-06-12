@@ -64,6 +64,13 @@ function Bot.freeCap()
     return 9999
 end
 
+-- escreve no console do bot (info/warn/print, o que existir nesta build)
+function Bot.log(msg)
+    if type(info) == "function" then info(msg)
+    elseif type(warn) == "function" then warn(msg)
+    elseif type(print) == "function" then print(msg) end
+end
+
 -- ---------- ações ----------
 
 function Bot.say(text)
@@ -159,6 +166,31 @@ function Bot.countItem(id)
         end
     end
     return total
+end
+
+-- snapshot para o inspetor: vocação + ids de itens equipados/em containers.
+-- Serve para o jogador descobrir os IDs reais do SEU servidor (RubinOT-like)
+-- e preencher 01_config.lua sem adivinhação.
+function Bot.inspect()
+    local out = { slots = {}, containers = {} }
+    if not Bot.ready() then return out end
+    local ok, voc = pcall(function() return Bot.lp():getVocation() end)
+    out.voc = (ok and voc) or "?"
+    out.level = Bot.level()
+    out.mana = Bot.mana()
+    for slot = 1, 10 do
+        local oki, it = pcall(function() return Bot.lp():getInventoryItem(slot) end)
+        if oki and it then out.slots[slot] = it:getId() end
+    end
+    local okc, containers = pcall(function() return g_game.getContainers() end)
+    if okc and containers then
+        for _, c in pairs(containers) do
+            for _, item in ipairs(c:getItems()) do
+                table.insert(out.containers, item:getId())
+            end
+        end
+    end
+    return out
 end
 
 -- primeiro slot livre num container do PRÓPRIO inventário (não corpos no chão)

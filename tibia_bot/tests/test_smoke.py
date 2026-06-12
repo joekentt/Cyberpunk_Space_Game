@@ -55,7 +55,7 @@ for path in bot_files:
 
 check(evl("#Stub.macros >= 7"), "macros registrados no carregamento")
 check(evl("Bot.profile() ~= nil and Bot.profile().name == 'knight'"),
-      "vocação detectada via client id (1 = knight)")
+      "vocação detectada via client id (4 = knight, convenção real)")
 
 # ---- 1. healer: HP 50% → exura ico ----
 run("Stub.player.hp = 50")
@@ -125,5 +125,25 @@ check(evl("Stub.walkedTo == nil"), "cavebot congelado durante a emergência")
 run("Stub.player.hp = 80")
 run("Stub.tick(1100)")
 check(evl("Bot.emergency == false"), "emergência desativa ao recuperar HP")
+
+# ---- 8. mapeamento de vocação RubinOT-like (1=sorc .. 4=knight, +promoções) ----
+run("Stub.player.voc = 1; Stub.tick(6000)")  # invalida o cache de 5 s
+check(evl("Bot.profile().name == 'sorcerer'"), "voc 1 → sorcerer (convenção real)")
+run("Stub.player.voc = 7; Stub.tick(6000)")
+check(evl("Bot.profile().name == 'paladin'"), "voc 7 (royal paladin) → paladin")
+
+# ---- 9. modo trust: magia que 'não funciona' entra em backoff ----
+run("""
+Stub.player.voc = 4
+Stub.player.mana = 200
+Stub.tick(6000)
+Bot.casting = { groupNext = {}, backoff = {}, pending = nil }
+Stub.said = {}
+-- magia inexistente: o stub não derruba mana de palavra que não começa com 'ex'
+Bot.tryCast('blabla', 'heal', 0, 0)
+""")
+run("Stub.tick(400)")  # verifyCasts roda e detecta que a mana não caiu
+check(evl("Bot.casting.backoff['blabla'] ~= nil"),
+      "modo trust põe em backoff a magia que não consumiu mana")
 
 print(f"\ntodos os {passed} checks passaram")

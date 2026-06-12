@@ -83,9 +83,14 @@ Profiles = {
     },
 }
 
--- Detecção: o protocolo 10.x envia o "client id" da vocação
--- (vocations.xml: knight=1, paladin=2, sorcerer=3, druid=4; promovida = +10).
-local CLIENT_VOC = { [1] = "knight", [2] = "paladin", [3] = "sorcerer", [4] = "druid" }
+-- Detecção: o protocolo envia o id da vocação. Convenção real do Tibia/RubinOT
+-- (vocations.xml padrão): 1=sorcerer, 2=druid, 3=paladin, 4=knight; as
+-- PROMOVIDAS são 5–8 (master sorcerer / elder druid / royal paladin / elite
+-- knight). Alguns datapacks usam base+10 — o `% 10` cobre esse caso também.
+local CLIENT_VOC = {
+    [1] = "sorcerer", [2] = "druid", [3] = "paladin", [4] = "knight",
+    [5] = "sorcerer", [6] = "druid", [7] = "paladin", [8] = "knight",
+}
 
 local cached, cachedAt = nil, 0
 
@@ -115,13 +120,60 @@ function Bot.profile()
     return prof
 end
 
--- mana que NUNCA deve ser gasta em ataque (reserva para a cura mais forte)
+-- mana que NUNCA deve ser gasta em ataque (reserva para a cura mais forte).
+-- Em modo "trust" não confiamos no custo das magias do servidor, então a
+-- reserva vira uma fração da mana máxima (CFG.manaReservePercent).
 function Bot.manaReserve(prof)
+    if (CFG.castGating or "trust") == "trust" then
+        local maxm = 0
+        pcall(function() maxm = Bot.lp():getMaxMana() or 0 end)
+        return math.floor(maxm * (CFG.manaReservePercent or 0.30))
+    end
     local reserve = 0
     for _, h in ipairs(prof.heals or {}) do
         if Bot.level() >= h.level and h.mana > reserve then reserve = h.mana end
     end
     return reserve
+end
+
+-- ---------- maquinário de cast tolerante a servidor desconhecido ----------
+-- Em "strict": só lança se level/mana baterem (TFS vanilla).
+-- Em "trust" : lança e verifica se a mana caiu; se não caiu (level insuficiente,
+--              mana, cooldown ou magia inexistente no servidor), põe a magia em
+--              backoff por 20 s e o chamador tenta a próxima da lista.
+Bot.casting = { groupNext = {}, backoff = {}, pending = nil }
+
+-- group: "heal" (cooldown ~1 s) ou "attack" (~2 s); grupos independentes.
+function Bot.tryCast(words, group, level, mana)
+    local now = Bot.now()
+    local c = Bot.casting
+    group = group or "heal"
+    if c.backoff[words] and now < c.backoff[words] then return false end
+    if c.groupNext[group] and now < c.groupNext[group] then return false end
+
+    if (CFG.castGating or "trust") == "strict" then
+        if Bot.level() < (level or 0) then return false end
+        if Bot.mana() < (mana or 0) then return false end
+    elseif Bot.mana() < 1 then
+        return false
+    end
+
+    local before = Bot.mana()          -- capturado ANTES do say (mana ainda não caiu)
+    Bot.say(words)
+    c.groupNext[group] = now + (group == "attack" and 2000 or 1000)
+    c.pending = { words = words, manaBefore = before, at = now }
+    return true
+end
+
+-- chamado uma vez por tick (pelo healer): fecha a verificação do último cast
+function Bot.verifyCasts()
+    local p = Bot.casting.pending
+    if not p or (Bot.now() - p.at) < 300 then return end
+    if Bot.mana() >= p.manaBefore then
+        -- mana não caiu → o cast falhou; evita spammar essa magia por um tempo
+        Bot.casting.backoff[p.words] = Bot.now() + 20000
+    end
+    Bot.casting.pending = nil
 end
 
 -- regras de supply efetivas: CFG.supplies.items ou derivadas das poções do perfil

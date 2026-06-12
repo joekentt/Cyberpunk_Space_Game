@@ -50,6 +50,33 @@ mesmo ambiente — não renomeie quebrando a ordem.
 4. Pronto — solte o personagem e deixe upando. As rotas ficam salvas no
    storage do config (sobrevivem a relog).
 
+## Servidor RubinOT-like (datapack customizado)
+
+Se o **seu** servidor é baseado no RubinOT (ou em qualquer datapack
+customizado), três coisas costumam fugir do TFS "vanilla": **IDs de vocação**,
+**IDs de poção** e **level/mana das magias**. O bot já vem preparado para isso —
+você **não precisa adivinhar** valores:
+
+1. **Vocação:** a detecção usa a convenção real do Tibia/RubinOT
+   (`1=sorcerer, 2=druid, 3=paladin, 4=knight`, promoções `5–8`). Se ainda
+   assim vier errada, force em `01_config.lua` (`forceVocation = "knight"`).
+2. **Modo de cast `trust` (padrão):** em vez de bloquear a magia por um
+   level/mana que eu não conheço, o bot **tenta lançar e observa se a mana
+   caiu**. Se não caiu (level insuficiente, mana, cooldown ou a magia não
+   existe no servidor), ele coloca aquela magia em *backoff* por 20 s e usa a
+   de baixo — ou seja, **auto-descobre** o que o personagem consegue lançar.
+   Para um servidor 100% vanilla você pode trocar para `castGating = "strict"`.
+3. **Inspetor in-game:** clique em **🔍 Inspecionar** no painel. O console do
+   bot imprime a sua **vocação (id)**, level, mana e os **IDs dos itens** da
+   sua mochila e equipamento. Com isso você preenche os ids de poção em
+   `01_config.lua` e, se quiser, ajusta as palavras/level/mana das magias em
+   `02_vocation.lua` para os valores exatos do seu servidor.
+
+> Importante: isto é para o **seu próprio** servidor, onde você é o dono. O bot
+> roda no cliente, então funciona desde que o seu servidor permita conectar com
+> um **OTClient v8** (com o módulo de bot). Se você só tem o cliente fechado
+> distribuído pelo RubinOT público, esse caminho não se aplica.
+
 ## Configuração (`01_config.lua`)
 
 - `attack.monsters` — lista de nomes para caçar; **vazia = ataca tudo**.

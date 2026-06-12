@@ -27,7 +27,7 @@ Stub = {
 -- ---------- jogador ----------
 
 Stub.player = {
-    hp = 100, mana = 300, maxmana = 300, level = 20, voc = 1,
+    hp = 100, mana = 300, maxmana = 300, level = 20, voc = 4,  -- 4 = knight
     expn = 10000, x = 100, y = 100, z = 7, cap = 500,
 }
 local P = Stub.player
@@ -85,7 +85,7 @@ g_game = {
     setChaseMode = function(mode) Stub.chase = mode end,
     walk = function(dir) table.insert(Stub.steps, dir) end,
     turn = function(dir) Stub.turned = dir end,
-    talk = function(text) table.insert(Stub.said, text) end,
+    talk = function(text) Stub.onSay(text) end,
     useInventoryItem = function(id) table.insert(Stub.used, id) end,
     useInventoryItemWith = function(id, target)
         table.insert(Stub.usedWith, { id = id, target = target })
@@ -139,8 +139,17 @@ function schedule(ms, fn)
     table.insert(Stub.scheduled, { at = Stub.time + ms, fn = fn })
 end
 
-function say(text)
+-- registra a fala e, se for magia (ex...), simula a queda de mana de um cast
+-- bem-sucedido — é assim que Bot.verifyCasts confirma o cast no modo trust
+function Stub.onSay(text)
     table.insert(Stub.said, text)
+    if type(text) == "string" and text:sub(1, 2) == "ex" then
+        Stub.player.mana = math.max(0, Stub.player.mana - 20)
+    end
+end
+
+function say(text)
+    Stub.onSay(text)
 end
 
 function itemAmount(id)
