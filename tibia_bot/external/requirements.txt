@@ -1,0 +1,10 @@
+# Dependências de runtime — instale na MÁQUINA onde o cliente roda (Windows).
+# Os testes headless em tests/ usam só Pillow + stdlib.
+
+mss>=9.0            # captura de tela rápida
+Pillow>=10.0       # manipulação de imagem (leitura de barras/battle list)
+numpy>=1.24        # apoio à visão (template matching, se você estender)
+opencv-python>=4.8 # visão computacional (matching de templates opcional)
+pytesseract>=0.3.10  # OCR de XP/log (exige o binário Tesseract instalado)
+pydirectinput>=1.0.4 # teclado/mouse via SendInput (Windows, funciona em jogos)
+pyautogui>=0.9.54  # fallback de input + failsafe (mouse no canto = abort)
